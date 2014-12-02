@@ -3,8 +3,22 @@ open Util
 open Constants
 open Netgraphics
 
+module State : STATE = struct
+  (*type player represents each team's data*)
+  type player = {mons_list: steammon list; inventory: inventory; credits: int} ref 
+
+  (*type t is a record ref that contains both players' data*)
+  type t = {red:player;blue:player}
+  
+  (*Initializes the state *)
+  let create () : t = 
+    let player : player = 
+      ref {mons_list = [];inventory = [];credits = cSTEAMMON_CREDITS} in
+    {red = player; blue = player}
+end
+
 (* You have to implement this. Change it from int to yout own state type*)
-type game = int 
+type game = State.t  
 
 let game_datafication g =
 	failwith 
@@ -27,7 +41,8 @@ let handle_step g ra ba =
                         (* Youngster Joey, about his Raticate *)
 
 let init_game () =
-	failwith
-    "We need Pokéballs! P-O-K-accent E balls!"
-
-                        (* Barry, rival in Steammon Diamond/Pearl/Platinum *)
+	Initialization.init_pool "moves.csv" "steammon.csv";
+    let moves = Initialization.move_table in
+    let mons = Initialization.mon_table in 
+    
+    (State.create (), TeamNameRequest,TeamNameRequest,hash_to_list moves, hash_to_list mons)
