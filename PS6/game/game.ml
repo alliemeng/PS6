@@ -49,6 +49,12 @@ let first = ref Red
 let move_lst = ref []
 let tbl = ref (Table.create 0)
 
+(* let red_draft_count = ref 0
+let blue_draft_count = ref 0  *)
+
+let total_draft_count = ref 0
+let last_drafted = ref Red
+
 let game_datafication (g:game) : game_status_data =
   let red : team_data = (g.red.mon_list, g.red.inventory, g.red.credits) in
   let blue : team_data = (g.blue.mon_list, g.blue.inventory, g.blue.credits) in 
@@ -87,10 +93,12 @@ let pick_request_helper (g:game) (c:color) =
 
 (*Drafts [mon] to [c]'s team.
  * Side effects: removes [mon] from steammon_pool, updates GUI, subtracts
- * cost of [mon] from [c]'s credits, adds [mon] to [c]'s team*)
+ * cost of [mon] from [c]'s credits, adds [mon] to [c]'s team, 
+ * increments total_draft_count*)
 let draft_mon (g:game) (mon:steammon) (c:color) : unit = 
   if (c = Red) then
     begin
+      incr total_draft_count;
       Table.remove g.mon_table mon.species; 
       g.red.mon_list <- mon :: g.red.mon_list;
       g.red.credits <- g.red.credits - mon.cost;
@@ -98,6 +106,7 @@ let draft_mon (g:game) (mon:steammon) (c:color) : unit =
     end
   else 
     begin
+      incr total_draft_count;
       Table.remove g.mon_table mon.species; 
       g.blue.mon_list <- mon :: g.blue.mon_list;
       g.blue.credits <- g.blue.credits - mon.cost;
@@ -111,14 +120,14 @@ let pick_cheap_mon (g:game) (mon: steammon) : steammon =
   List.hd cheap_mons
 
 
-(* let mon_list : steam_pool ref = ref []
-let move_list : move_set ref = ref []
-
-let mon_table = ref Table.create 0
-let move_table = ref Table.create 0  *)
-
-(* let first_player : color ref = ref Red 
-let draft_num = ref 0 *) 
+let send_request (g:game) = 
+  match !last_drafted with
+  | Red -> 
+    if !total_draft_count mod 2 = 1 then pick_request_helper g Blue
+    else pick_request_helper g Red
+  | Blue -> 
+    if !total_draft_count mod 2 = 1 then pick_request_helper g Red
+    else pick_request_helper g Blue
 
 
 
@@ -127,7 +136,6 @@ let draft_num = ref 0 *)
 let handle_step (g:game) (ra:command) (ba:command) : game_output =
   match ra, ba with
     | Action(SendTeamName red_name), Action (SendTeamName blue_name) -> 
-      send_update(Message "reached 1");
       send_update (InitGraphics (red_name,blue_name));
       if g.first_player = Red then
         pick_request_helper g Red
@@ -135,35 +143,49 @@ let handle_step (g:game) (ra:command) (ba:command) : game_output =
         pick_request_helper g Blue
          
     | Action(PickSteammon steammon), DoNothing -> 
-      send_update(Message "reached 2");
-      let mon = Table.find g.mon_table steammon in 
-      if g.red.credits < mon.cost then 
-        let cheap_mon = pick_cheap_mon g mon in 
+      if !total_draft_count / 2 = cNUM_PICKS then 
+        let game_data = game_datafication g in 
+        (None, game_data, Some(Request(PickInventoryRequest(game_data))),
+          Some(Request(PickInventoryRequest(game_data))))
+      else
         begin
-          draft_mon g cheap_mon Red; 
-          pick_request_helper g Blue
+          last_drafted := Red;
+          let mon = Table.find g.mon_table steammon in 
+          if g.red.credits < mon.cost then 
+          let cheap_mon = pick_cheap_mon g mon in 
+            begin
+              draft_mon g cheap_mon Red; 
+              send_request g
+            end
+          else 
+            begin
+              draft_mon g mon Red; 
+              send_request g 
+            end  
+        end 
+    | DoNothing, Action(PickSteammon steammon) ->
+      if !total_draft_count / 2 = cNUM_PICKS then
+        let game_data = game_datafication g in  
+        (None, game_data, Some(Request(PickInventoryRequest(game_data))),
+          Some(Request(PickInventoryRequest(game_data))))
+      else
+        begin
+          last_drafted := Blue;
+
+          let mon = Table.find g.mon_table steammon in 
+          if g.blue.credits < mon.cost then 
+            let cheap_mon = pick_cheap_mon g mon in
+            begin
+              draft_mon g cheap_mon Blue; 
+              send_request g 
+            end 
+          else 
+            begin
+              draft_mon g mon Blue; 
+              send_request g 
+            end   
         end
-      else 
-        begin
-          draft_mon g mon Red; 
-          pick_request_helper g Blue
-        end  
-    | DoNothing, Action(PickSteammon steammon) -> 
-          send_update(Message "reached 3");
-
-        let mon = Table.find g.mon_table steammon in 
-        if g.blue.credits < mon.cost then 
-          let cheap_mon = pick_cheap_mon g mon in
-          begin
-            draft_mon g cheap_mon Blue; 
-            pick_request_helper g Red
-          end 
-
-        else 
-          begin
-            draft_mon g mon Blue; 
-            pick_request_helper g Red
-          end  
+       
 
 
       | Action(PickInventory red_inv), Action(PickInventory blue_inv)  -> failwith "nope"
@@ -193,6 +215,7 @@ let init_game () : game * request * request * move list * steammon list =
       begin
         s.first_player <- Blue; 
         first := Blue 
+
       end;
 
     s.mon_table <- Initialization.mon_table;
