@@ -6,14 +6,13 @@ open Netgraphics
 module type STATE = sig 
   type player = {mutable mon_list: steammon list;
                  mutable inventory: inventory; 
-                 mutable credits: int(* ;
-                 mutable active_steammon: steammon option *)} 
+                 mutable credits: int} 
 
   type t = {mutable red: player ; 
             mutable blue: player; 
-            mutable first_player : color; 
+            (* mutable first_player : color;  *)
             mutable mon_table : steammon Table.t; 
-            mutable move_list: move_set }
+            (* mutable move_list: move_set  *)}
 
   val create: unit -> t
 end
@@ -22,25 +21,24 @@ module State : STATE  = struct
   (*type player represents each team's data*)
   type player = {mutable mon_list: steammon list ; 
                  mutable inventory: inventory ; 
-                 mutable credits:  int(* ;
-                 mutable active_steammon: steammon option *)}  
+                 mutable credits:  int}  
 
   (*type t is a record ref that contains both players' data, a list of all remaining
    * steammon, and a list of all remaining moves*)
   type t = {mutable red: player ; 
             mutable blue: player; 
-            mutable first_player : color; 
+            (* mutable first_player : color;  *)
             mutable mon_table : steammon Table.t; 
-            mutable move_list: move_set }
+            (* mutable move_list: move_set  *)}
   
   (*Initializes the state *)
   let create () : t = 
     let player1 : player = 
-      {mon_list = []; inventory = []; credits = cSTEAMMON_CREDITS(* ; active_steammon = None *)} in
+      {mon_list = []; inventory = []; credits = cSTEAMMON_CREDITS} in
     let player2 : player = 
-      {mon_list = []; inventory = []; credits = cSTEAMMON_CREDITS(* ; active_steammon = None *)} in
-    {red = player1; blue = player2; first_player = Red; mon_table = Table.create 0; 
-    move_list = []}
+      {mon_list = []; inventory = []; credits = cSTEAMMON_CREDITS} in
+    {red = player1; blue = player2; (* first_player = Red;  *)mon_table = Table.create 0; 
+    (* move_list = [] *)}
 
 
 
@@ -50,12 +48,10 @@ end
 
 type game = State.t  
 let first = ref Red
-let move_lst = ref []
+(* let move_lst = ref [] *)
 let move_table = ref (Table.create 0)
 let mon_table = ref (Table.create 0)
 
-(* let red_draft_count = ref 0
-let blue_draft_count = ref 0  *)
 
 let total_draft_count = ref 0
 let last_drafted = ref Red
@@ -73,16 +69,14 @@ let game_from_data (game_data: game_status_data) : game =
         g.red.mon_list <- red_mons;
         g.red.inventory <- red_inv;
         g.red.credits <- red_credits;
-(*         g.red.active_steammon <- None;
- *)
+
         g.blue.mon_list <- blue_mons;
         g.blue.inventory <- red_inv;
         g.blue.credits <- blue_credits;
-(*         g.blue.active_steammon <- None;
- *)
-        g.first_player <- !first;
+
+        (* g.first_player <- !first; *)
         g.mon_table <- !mon_table;
-        g.move_list <- !move_lst
+        (* g.move_list <- !move_lst *)
         end; g 
 
 
@@ -92,11 +86,11 @@ let pick_request_helper (g:game) (c:color) =
   match c with 
   | Blue -> 
       (None, game_data, None, 
-        Some (Request(PickRequest(Blue, game_data,g.move_list, 
+        Some (Request(PickRequest(Blue, game_data, hash_to_list !move_table(* g.move_list *), 
         hash_to_list g.mon_table))))
   | Red -> 
       (None, game_data, Some (Request(
-        PickRequest(Red, game_data,g.move_list, 
+        PickRequest(Red, game_data,hash_to_list !move_table(* g.move_list *), 
         hash_to_list g.mon_table))),None) 
 
 (*Drafts [mon] to [c]'s team.
@@ -111,7 +105,6 @@ let draft_mon (g:game) (mon:steammon) (c:color) : unit =
       Table.remove g.mon_table mon.species; 
       g.red.mon_list <- mon :: g.red.mon_list;
       g.red.credits <- g.red.credits - mon.cost;
-            send_update(Message ("Red credits after: " ^ string_of_int g.red.credits));
 
       send_update (UpdateSteammon (mon.species,mon.curr_hp,mon.max_hp,Red))
 
@@ -122,13 +115,11 @@ let draft_mon (g:game) (mon:steammon) (c:color) : unit =
       Table.remove g.mon_table mon.species; 
       g.blue.mon_list <- mon :: g.blue.mon_list;
       g.blue.credits <- g.blue.credits - mon.cost;
-                  send_update(Message ("Blue credits after: " ^ string_of_int g.blue.credits));
 
       send_update (UpdateSteammon (mon.species,mon.curr_hp,mon.max_hp,Blue))
     end
 
 let pick_cheap_mon (g:game) (mon: steammon) : steammon = 
-  send_update(Message "Too Poor");
   let (_,cheap_mons) = Table.fold(fun k v (cost,acc) -> 
   if v.cost < cost then (v.cost,v::[]) 
   else (cost,acc)) g.mon_table (mon.cost,[]) in 
@@ -199,14 +190,14 @@ let handle_step (g:game) (ra:command) (ba:command) : game_output =
   match ra, ba with
     | Action(SendTeamName red_name), Action (SendTeamName blue_name) -> 
       send_update (InitGraphics (red_name,blue_name));
-      if g.first_player = Red then
+(*       if g.first_player = Red then
+ *)        
+        if !first = Red then 
         pick_request_helper g Red
       else 
         pick_request_helper g Blue
          
     | Action(PickSteammon steammon), DoNothing -> 
-      send_update(Message steammon);
-      send_update(Message ("Red credits before: " ^ string_of_int g.red.credits));
       if !total_draft_count / 2 = cNUM_PICKS then 
         let game_data = game_datafication g in 
         (None, game_data, Some(Request(PickInventoryRequest(game_data))),
@@ -228,9 +219,7 @@ let handle_step (g:game) (ra:command) (ba:command) : game_output =
             end  
         end 
     | DoNothing, Action(PickSteammon steammon) ->
-          send_update(Message steammon);
-                send_update(Message ("Blue credits before: " ^ string_of_int g.blue.credits));
-
+         
 
       if !total_draft_count / 2 = cNUM_PICKS then
         let game_data = game_datafication g in  
@@ -276,13 +265,9 @@ let handle_step (g:game) (ra:command) (ba:command) : game_output =
         send_update (SetChosenSteammon red_starter);
         send_update (SetChosenSteammon blue_starter);
 
-        let game_data = game_datafication g in 
+       let game_data = game_datafication g in 
         (None, game_data, Some(Request(ActionRequest game_data)),
           Some(Request(ActionRequest game_data)))
-
-
-
-
       | _, _ -> failwith "Not here yet"
 
 
@@ -295,28 +280,24 @@ let init_game () : game * request * request * move list * steammon list =
     move_table := Initialization.move_table;
     mon_table := Initialization.mon_table;
 
-    let move_list = hash_to_list (Initialization.move_table) in 
-    let mon_list = hash_to_list (Initialization.mon_table) in 
-
-
     let c = Random.int 2 in 
-    if c = 0 then 
+    if c = 1 then 
       begin 
-      s.first_player <- Red;
+      (* s.first_player <- Red; *)
       first:= Red
       end
     else 
       begin
-        s.first_player <- Blue; 
+        (* s.first_player <- Blue; *) 
         first := Blue 
 
       end;
 
 
     s.mon_table <- Initialization.mon_table;
-    s.move_list <- move_list;  
+(*     s.move_list <- move_list;  
+ *)
+(*     move_lst := move_list;
+ *)
 
-    move_lst := move_list;
-
-
-    (s, TeamNameRequest,TeamNameRequest,move_list, mon_list)
+    (s, TeamNameRequest,TeamNameRequest,hash_to_list (!move_table), hash_to_list (!mon_table))
