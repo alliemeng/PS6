@@ -33,9 +33,11 @@ module State : STATE  = struct
   
   (*Initializes the state *)
   let create () : t = 
-    let player : player = 
+    let player1 : player = 
       {mon_list = []; inventory = []; credits = cSTEAMMON_CREDITS} in
-    {red = player; blue = player; first_player = Red; mon_table = Table.create 0; 
+    let player2 : player = 
+      {mon_list = []; inventory = []; credits = cSTEAMMON_CREDITS} in
+    {red = player1; blue = player2; first_player = Red; mon_table = Table.create 0; 
     move_list = []}
 
 
@@ -47,7 +49,8 @@ end
 type game = State.t  
 let first = ref Red
 let move_lst = ref []
-let tbl = ref (Table.create 0)
+let move_table = ref (Table.create 0)
+let mon_table = ref (Table.create 0)
 
 (* let red_draft_count = ref 0
 let blue_draft_count = ref 0  *)
@@ -74,7 +77,7 @@ let game_from_data (game_data: game_status_data) : game =
         g.blue.credits <- blue_credits;
 
         g.first_player <- !first;
-        g.mon_table <- !tbl;
+        g.mon_table <- !mon_table;
         g.move_list <- !move_lst
         end; g 
 
@@ -102,7 +105,10 @@ let draft_mon (g:game) (mon:steammon) (c:color) : unit =
       Table.remove g.mon_table mon.species; 
       g.red.mon_list <- mon :: g.red.mon_list;
       g.red.credits <- g.red.credits - mon.cost;
+            send_update(Message ("Red credits after: " ^ string_of_int g.red.credits));
+
       send_update (UpdateSteammon (mon.species,mon.curr_hp,mon.max_hp,Red))
+
     end
   else 
     begin
@@ -110,10 +116,13 @@ let draft_mon (g:game) (mon:steammon) (c:color) : unit =
       Table.remove g.mon_table mon.species; 
       g.blue.mon_list <- mon :: g.blue.mon_list;
       g.blue.credits <- g.blue.credits - mon.cost;
+                  send_update(Message ("Blue credits after: " ^ string_of_int g.blue.credits));
+
       send_update (UpdateSteammon (mon.species,mon.curr_hp,mon.max_hp,Blue))
     end
 
 let pick_cheap_mon (g:game) (mon: steammon) : steammon = 
+  send_update(Message "Too Poor");
   let (_,cheap_mons) = Table.fold(fun k v (cost,acc) -> 
   if v.cost < cost then (v.cost,v::[]) 
   else (cost,acc)) g.mon_table (mon.cost,[]) in 
@@ -141,7 +150,18 @@ let rec inventory_price (inv: inventory) (acc:int) : int =
     else if List.length inv = 2 then inventory_price t (acc + cCOST_XDEFEND)
     else inventory_price t (acc + cCOST_XSPEED)
 
+(* let process_status_effects (g:game) (mon:steammon) : unit = 
+  match mon.status with
+  | None -> ()
+  | Some effect -> match effect with
+    | Paralyzed
+    | Poisoned
+    | Asleep
+    | Burned
+    | Frozen
+    | Confused
 
+ let process_move (g:game) (c:color) (mon:steammon) : unit =  *)
 
  
 
@@ -155,6 +175,8 @@ let handle_step (g:game) (ra:command) (ba:command) : game_output =
         pick_request_helper g Blue
          
     | Action(PickSteammon steammon), DoNothing -> 
+      send_update(Message steammon);
+      send_update(Message ("Red credits before: " ^ string_of_int g.red.credits));
       if !total_draft_count / 2 = cNUM_PICKS then 
         let game_data = game_datafication g in 
         (None, game_data, Some(Request(PickInventoryRequest(game_data))),
@@ -176,6 +198,10 @@ let handle_step (g:game) (ra:command) (ba:command) : game_output =
             end  
         end 
     | DoNothing, Action(PickSteammon steammon) ->
+          send_update(Message steammon);
+                send_update(Message ("Blue credits before: " ^ string_of_int g.blue.credits));
+
+
       if !total_draft_count / 2 = cNUM_PICKS then
         let game_data = game_datafication g in  
         (None, game_data, Some(Request(PickInventoryRequest(game_data))),
@@ -199,6 +225,10 @@ let handle_step (g:game) (ra:command) (ba:command) : game_output =
         end
        
       | Action(PickInventory red_inv), Action(PickInventory blue_inv) ->
+
+        send_update(Message ("Red: " ^ (List.hd g.red.mon_list).species ));
+        send_update(Message ("Blue: " ^ (List.hd g.blue.mon_list).species ));
+
         let default = cNUM_ETHER::cNUM_MAX_POTION::
           cNUM_REVIVE::cNUM_FULL_HEAL::cNUM_XATTACK::
           cNUM_XDEFENSE::cNUM_XSPEED::[] in 
@@ -221,8 +251,9 @@ let init_game () : game * request * request * move list * steammon list =
   let s = State.create () in 
 
     Initialization.init_pool "moves.csv" "steammon.csv";
-(*     move_table := Initialization.move_table;
-    mon_table := Initialization.mon_table; *)
+    
+    move_table := Initialization.move_table;
+    mon_table := Initialization.mon_table;
 
     let move_list = hash_to_list (Initialization.move_table) in 
     let mon_list = hash_to_list (Initialization.mon_table) in 
@@ -246,6 +277,6 @@ let init_game () : game * request * request * move list * steammon list =
     s.move_list <- move_list;  
 
     move_lst := move_list;
-    tbl := Initialization.mon_table;
+
 
     (s, TeamNameRequest,TeamNameRequest,move_list, mon_list)
