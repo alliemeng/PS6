@@ -46,6 +46,8 @@ module State : STATE  = struct
  *)
 end
 
+
+
 type game = State.t  
 let first = ref Red
 (* let move_lst = ref [] *)
@@ -98,26 +100,20 @@ let pick_request_helper (g:game) (c:color) =
  * cost of [mon] from [c]'s credits, adds [mon] to [c]'s team, 
  * increments total_draft_count*)
 let draft_mon (g:game) (mon:steammon) (c:color) : unit = 
-  match c with
-  | Red ->
+  let player = match c with
+  | Red -> g.red 
+  | Blue -> g.blue in 
+
     begin
       incr total_draft_count;
       Table.remove g.mon_table mon.species; 
-      g.red.mon_list <- mon :: g.red.mon_list;
-      g.red.credits <- g.red.credits - mon.cost;
+      player.mon_list <- mon :: player.mon_list;
+      player.credits <- player.credits - mon.cost;
 
-      send_update (UpdateSteammon (mon.species,mon.curr_hp,mon.max_hp,Red))
+      send_update (UpdateSteammon (mon.species,mon.curr_hp,mon.max_hp,c))
 
     end
-  | Blue ->  
-    begin
-      incr total_draft_count;
-      Table.remove g.mon_table mon.species; 
-      g.blue.mon_list <- mon :: g.blue.mon_list;
-      g.blue.credits <- g.blue.credits - mon.cost;
-
-      send_update (UpdateSteammon (mon.species,mon.curr_hp,mon.max_hp,Blue))
-    end
+  
 
 let pick_cheap_mon (g:game) (mon: steammon) : steammon = 
   let (_,cheap_mons) = Table.fold(fun k v (cost,acc) -> 
@@ -171,104 +167,100 @@ let switch_steammon (g:game) (c:color) (mon_name:string) : unit =
     | h::t -> 
       {h with mods = default_modifier} :: t in 
 
-  match c with
-  | Red -> 
+  let player = match c with
+  | Red -> g.red
+  | Blue -> g.blue in 
     begin
-      g.red.mon_list <- reset_mods g.red.mon_list;
-      g.red.mon_list <- set_active_steammon g.red.mon_list mon_name;
+      player.mon_list <- reset_mods player.mon_list;
+      player.mon_list <- set_active_steammon player.mon_list mon_name;
       send_update (SetChosenSteammon mon_name)
     end
-  | Blue ->
-    begin
-      g.blue.mon_list <- reset_mods g.blue.mon_list;
-      g.blue.mon_list <- set_active_steammon g.blue.mon_list mon_name;
-      send_update (SetChosenSteammon mon_name)
-    end 
+  
+let handle_draft_action (g:game) (c: color) (mon_name:string) = 
+  let player = match c with 
+  | Red -> g.red 
+  | Blue -> g.blue in 
+
+  if !total_draft_count / 2 = cNUM_PICKS then 
+    let game_data = game_datafication g in 
+        (None, game_data, Some(Request(PickInventoryRequest(game_data))),
+          Some(Request(PickInventoryRequest(game_data))))
+      else
+        begin
+          last_drafted := c;
+          let mon = Table.find g.mon_table mon_name in 
+          if player.credits < mon.cost then 
+          let cheap_mon = pick_cheap_mon g mon in 
+            begin
+              draft_mon g cheap_mon c; 
+              send_request g
+            end
+          else 
+            begin
+              draft_mon g mon c; 
+              send_request g 
+            end  
+        end 
  
+let set_inventory (g:game) (c:color) (inv:inventory) : unit = 
+  let default = cNUM_ETHER::cNUM_MAX_POTION::
+          cNUM_REVIVE::cNUM_FULL_HEAL::cNUM_XATTACK::
+          cNUM_XDEFENSE::cNUM_XSPEED::[] in 
+  let player = match c with 
+  | Red -> g.red
+  | Blue -> g.blue in 
+  
+  let price = inventory_price inv 0 in 
+  let inv' = if price > cINITIAL_CASH then default else inv in
+
+  player.inventory <- inv' 
+
+let set_starter (g:game) (c:color) (mon_name:string) : unit = 
+  let player = match c with 
+  | Red -> g.red
+  | Blue -> g.blue in
+
+  player.mon_list <- set_active_steammon player.mon_list mon_name;
+  send_update (SetChosenSteammon mon_name)
+       
 
 let handle_step (g:game) (ra:command) (ba:command) : game_output =
   match ra, ba with
     | Action(SendTeamName red_name), Action (SendTeamName blue_name) -> 
-      send_update (InitGraphics (red_name,blue_name));
-(*       if g.first_player = Red then
- *)        
-        if !first = Red then 
+      
+      send_update (InitGraphics (red_name,blue_name));    
+      if !first = Red then 
         pick_request_helper g Red
       else 
         pick_request_helper g Blue
          
     | Action(PickSteammon steammon), DoNothing -> 
-      if !total_draft_count / 2 = cNUM_PICKS then 
-        let game_data = game_datafication g in 
-        (None, game_data, Some(Request(PickInventoryRequest(game_data))),
-          Some(Request(PickInventoryRequest(game_data))))
-      else
-        begin
-          last_drafted := Red;
-          let mon = Table.find g.mon_table steammon in 
-          if g.red.credits < mon.cost then 
-          let cheap_mon = pick_cheap_mon g mon in 
-            begin
-              draft_mon g cheap_mon Red; 
-              send_request g
-            end
-          else 
-            begin
-              draft_mon g mon Red; 
-              send_request g 
-            end  
-        end 
+      handle_draft_action g Red steammon
+
     | DoNothing, Action(PickSteammon steammon) ->
-         
+       handle_draft_action g Blue steammon 
 
-      if !total_draft_count / 2 = cNUM_PICKS then
-        let game_data = game_datafication g in  
-        (None, game_data, Some(Request(PickInventoryRequest(game_data))),
-          Some(Request(PickInventoryRequest(game_data))))
-      else
-        begin
-          last_drafted := Blue;
+    | Action(PickInventory red_inv), Action(PickInventory blue_inv) ->
 
-          let mon = Table.find g.mon_table steammon in 
-          if g.blue.credits < mon.cost then 
-            let cheap_mon = pick_cheap_mon g mon in
-            begin
-              draft_mon g cheap_mon Blue; 
-              send_request g 
-            end 
-          else 
-            begin
-              draft_mon g mon Blue; 
-              send_request g 
-            end   
-        end
-       
-      | Action(PickInventory red_inv), Action(PickInventory blue_inv) ->
-
-        let default = cNUM_ETHER::cNUM_MAX_POTION::
-          cNUM_REVIVE::cNUM_FULL_HEAL::cNUM_XATTACK::
-          cNUM_XDEFENSE::cNUM_XSPEED::[] in 
-        let r_price = inventory_price red_inv 0 in
-        let b_price = inventory_price blue_inv 0 in 
-        let r_inv = if r_price > cINITIAL_CASH then default else red_inv in 
-        let b_inv = if b_price > cINITIAL_CASH then default else blue_inv in
-        g.red.inventory <- r_inv;
-        g.blue.inventory <- b_inv;
-        let game_data = game_datafication g in 
-        (None, game_data, Some(Request(StarterRequest(game_data))),
-          Some(Request(StarterRequest(game_data))))
-      | Action(SelectStarter red_starter), Action(SelectStarter blue_starter) ->
+      set_inventory g Red red_inv;
+      set_inventory g Blue blue_inv;
+        
+      let game_data = game_datafication g in 
+      (None, game_data, Some(Request(StarterRequest(game_data))),
+        Some(Request(StarterRequest(game_data))))
 
 
-        g.red.mon_list <- set_active_steammon g.red.mon_list red_starter;
-        g.blue.mon_list <- set_active_steammon g.blue.mon_list blue_starter;
-        send_update (SetChosenSteammon red_starter);
-        send_update (SetChosenSteammon blue_starter);
+    | Action(SelectStarter red_starter), Action(SelectStarter blue_starter) ->
+        
+      set_starter g Red red_starter;
+      set_starter g Blue blue_starter;
+        
+      let game_data = game_datafication g in 
+      (None, game_data, Some(Request(ActionRequest game_data)),
+        Some(Request(ActionRequest game_data)))
 
-       let game_data = game_datafication g in 
-        (None, game_data, Some(Request(ActionRequest game_data)),
-          Some(Request(ActionRequest game_data)))
-      | _, _ -> failwith "Not here yet"
+    | Action(UseMove red_move), Action (UseMove blue_move) -> 
+    | _, _ -> failwith "Not here yet"
 
 
 
