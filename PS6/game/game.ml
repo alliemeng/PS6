@@ -73,13 +73,13 @@ let game_from_data (game_data: game_status_data) : game =
         g.red.mon_list <- red_mons;
         g.red.inventory <- red_inv;
         g.red.credits <- red_credits;
-        (* g.red.active_steammon <- None *);
-
+(*         g.red.active_steammon <- None;
+ *)
         g.blue.mon_list <- blue_mons;
         g.blue.inventory <- red_inv;
         g.blue.credits <- blue_credits;
-        (* g.blue.active_steammon <- None *);
-
+(*         g.blue.active_steammon <- None;
+ *)
         g.first_player <- !first;
         g.mon_table <- !mon_table;
         g.move_list <- !move_lst
@@ -185,13 +185,13 @@ let switch_steammon (g:game) (c:color) (mon_name:string) : unit =
     begin
       g.red.mon_list <- reset_mods g.red.mon_list;
       g.red.mon_list <- set_active_steammon g.red.mon_list mon_name;
-      SetChosenSteammon (mon_name)
+      send_update (SetChosenSteammon mon_name)
     end
   | Blue ->
     begin
       g.blue.mon_list <- reset_mods g.blue.mon_list;
       g.blue.mon_list <- set_active_steammon g.blue.mon_list mon_name;
-      SetChosenSteammon (mon_name)
+      send_update (SetChosenSteammon mon_name)
     end 
  
 
@@ -271,7 +271,7 @@ let handle_step (g:game) (ra:command) (ba:command) : game_output =
       | Action(SelectStarter red_starter), Action(SelectStarter blue_starter) ->
 
 
-        g.red.mon_list <- set_active_steammon b.red.mon_list red_starter;
+        g.red.mon_list <- set_active_steammon g.red.mon_list red_starter;
         g.blue.mon_list <- set_active_steammon g.blue.mon_list blue_starter;
         send_update (SetChosenSteammon red_starter);
         send_update (SetChosenSteammon blue_starter);
