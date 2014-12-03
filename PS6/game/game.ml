@@ -129,6 +129,18 @@ let send_request (g:game) =
     if !total_draft_count mod 2 = 1 then pick_request_helper g Red
     else pick_request_helper g Blue
 
+let rec inventory_price (inv: inventory) (acc:int) : int = 
+  match inv with 
+  | [] -> acc
+  | h::t -> 
+    if List.length inv = 7 then inventory_price t (acc+cCOST_ETHER)
+    else if List.length inv = 6 then inventory_price t (acc+cCOST_MAXPOTION) 
+    else if List.length inv = 5 then inventory_price t (acc+cCOST_REVIVE)
+    else if List.length inv = 4 then inventory_price t (acc+cCOST_FULLHEAL)
+    else if List.length inv = 3 then inventory_price t (acc + cCOST_XATTACK)
+    else if List.length inv = 2 then inventory_price t (acc + cCOST_XDEFEND)
+    else inventory_price t (acc + cCOST_XSPEED)
+
 
 
  
@@ -186,10 +198,21 @@ let handle_step (g:game) (ra:command) (ba:command) : game_output =
             end   
         end
        
-
-
-      | Action(PickInventory red_inv), Action(PickInventory blue_inv)  -> failwith "nope"
-        
+      | Action(PickInventory red_inv), Action(PickInventory blue_inv) ->
+        let default = cNUM_ETHER::cNUM_MAX_POTION::
+          cNUM_REVIVE::cNUM_FULL_HEAL::cNUM_XATTACK::
+          cNUM_XDEFENSE::cNUM_XSPEED::[] in 
+        let r_price = inventory_price red_inv 0 in
+        let b_price = inventory_price blue_inv 0 in 
+        let r_inv = if r_price > cINITIAL_CASH then default else red_inv in 
+        let b_inv = if b_price > cINITIAL_CASH then default else blue_inv in
+        g.red.inventory <- r_inv;
+        g.blue.inventory <- b_inv;
+        let game_data = game_datafication g in 
+        (None, game_data, Some(Request(StarterRequest(game_data))),
+          Some(Request(StarterRequest(game_data))))
+      | Action(SelectStarter red_starter), Action(SelectStarter blue_starter) ->
+        failwith "implement battle phase"   
       | _, _ -> failwith "Not here yet"
 
 
@@ -218,9 +241,11 @@ let init_game () : game * request * request * move list * steammon list =
 
       end;
 
+
     s.mon_table <- Initialization.mon_table;
     s.move_list <- move_list;  
 
     move_lst := move_list;
     tbl := Initialization.mon_table;
+
     (s, TeamNameRequest,TeamNameRequest,move_list, mon_list)
