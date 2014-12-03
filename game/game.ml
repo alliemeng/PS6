@@ -10,9 +10,7 @@ module type STATE = sig
 
   type t = {mutable red: player ; 
             mutable blue: player; 
-            (* mutable first_player : color;  *)
-            mutable mon_table : steammon Table.t; 
-            (* mutable move_list: move_set  *)}
+            mutable mon_table : steammon Table.t}
 
   val create: unit -> t
 end
@@ -27,9 +25,7 @@ module State : STATE  = struct
    * steammon, and a list of all remaining moves*)
   type t = {mutable red: player ; 
             mutable blue: player; 
-            (* mutable first_player : color;  *)
-            mutable mon_table : steammon Table.t; 
-            (* mutable move_list: move_set  *)}
+            mutable mon_table : steammon Table.t} 
   
   (*Initializes the state *)
   let create () : t = 
@@ -37,20 +33,14 @@ module State : STATE  = struct
       {mon_list = []; inventory = []; credits = cSTEAMMON_CREDITS} in
     let player2 : player = 
       {mon_list = []; inventory = []; credits = cSTEAMMON_CREDITS} in
-    {red = player1; blue = player2; (* first_player = Red;  *)mon_table = Table.create 0; 
-    (* move_list = [] *)}
+    {red = player1; blue = player2; mon_table = Table.create 0}
 
-
-
-(*   let pick_mons (game:t) (c:color) = 
- *)
 end
 
 
 
 type game = State.t  
 let first = ref Red
-(* let move_lst = ref [] *)
 let move_table = ref (Table.create 0)
 let mon_table = ref (Table.create 0)
 
@@ -76,9 +66,7 @@ let game_from_data (game_data: game_status_data) : game =
         g.blue.inventory <- red_inv;
         g.blue.credits <- blue_credits;
 
-        (* g.first_player <- !first; *)
         g.mon_table <- !mon_table;
-        (* g.move_list <- !move_lst *)
         end; g 
 
 
@@ -275,21 +263,15 @@ let init_game () : game * request * request * move list * steammon list =
     let c = Random.int 2 in 
     if c = 1 then 
       begin 
-      (* s.first_player <- Red; *)
       first:= Red
       end
     else 
       begin
-        (* s.first_player <- Blue; *) 
         first := Blue 
 
       end;
 
 
     s.mon_table <- Initialization.mon_table;
-(*     s.move_list <- move_list;  
- *)
-(*     move_lst := move_list;
- *)
 
     (s, TeamNameRequest,TeamNameRequest,hash_to_list (!move_table), hash_to_list (!mon_table))
