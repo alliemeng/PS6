@@ -6,7 +6,8 @@ open Netgraphics
 module type STATE = sig 
   type player = {mutable mon_list: steammon list;
                  mutable inventory: inventory; 
-                 mutable credits: int} 
+                 mutable credits: int(* ;
+                 mutable active_steammon: steammon option *)} 
 
   type t = {mutable red: player ; 
             mutable blue: player; 
@@ -21,7 +22,8 @@ module State : STATE  = struct
   (*type player represents each team's data*)
   type player = {mutable mon_list: steammon list ; 
                  mutable inventory: inventory ; 
-                 mutable credits:  int }  
+                 mutable credits:  int(* ;
+                 mutable active_steammon: steammon option *)}  
 
   (*type t is a record ref that contains both players' data, a list of all remaining
    * steammon, and a list of all remaining moves*)
@@ -34,9 +36,9 @@ module State : STATE  = struct
   (*Initializes the state *)
   let create () : t = 
     let player1 : player = 
-      {mon_list = []; inventory = []; credits = cSTEAMMON_CREDITS} in
+      {mon_list = []; inventory = []; credits = cSTEAMMON_CREDITS(* ; active_steammon = None *)} in
     let player2 : player = 
-      {mon_list = []; inventory = []; credits = cSTEAMMON_CREDITS} in
+      {mon_list = []; inventory = []; credits = cSTEAMMON_CREDITS(* ; active_steammon = None *)} in
     {red = player1; blue = player2; first_player = Red; mon_table = Table.create 0; 
     move_list = []}
 
@@ -71,10 +73,12 @@ let game_from_data (game_data: game_status_data) : game =
         g.red.mon_list <- red_mons;
         g.red.inventory <- red_inv;
         g.red.credits <- red_credits;
+        (* g.red.active_steammon <- None *);
 
         g.blue.mon_list <- blue_mons;
         g.blue.inventory <- red_inv;
         g.blue.credits <- blue_credits;
+        (* g.blue.active_steammon <- None *);
 
         g.first_player <- !first;
         g.mon_table <- !mon_table;
@@ -85,21 +89,23 @@ let game_from_data (game_data: game_status_data) : game =
 (*sends PickRequest if it is [c]'s turn to pick*)
 let pick_request_helper (g:game) (c:color) = 
   let game_data = game_datafication g in 
-  if c = Blue then 
-  (None, game_data, None, 
-    Some (Request(PickRequest(Blue, game_data,g.move_list, 
-    hash_to_list g.mon_table))))
-  else 
-  (None, game_data, Some (Request(
-    PickRequest(Red, game_data,g.move_list, 
-    hash_to_list g.mon_table))),None) 
+  match c with 
+  | Blue -> 
+      (None, game_data, None, 
+        Some (Request(PickRequest(Blue, game_data,g.move_list, 
+        hash_to_list g.mon_table))))
+  | Red -> 
+      (None, game_data, Some (Request(
+        PickRequest(Red, game_data,g.move_list, 
+        hash_to_list g.mon_table))),None) 
 
 (*Drafts [mon] to [c]'s team.
  * Side effects: removes [mon] from steammon_pool, updates GUI, subtracts
  * cost of [mon] from [c]'s credits, adds [mon] to [c]'s team, 
  * increments total_draft_count*)
 let draft_mon (g:game) (mon:steammon) (c:color) : unit = 
-  if (c = Red) then
+  match c with
+  | Red ->
     begin
       incr total_draft_count;
       Table.remove g.mon_table mon.species; 
@@ -110,7 +116,7 @@ let draft_mon (g:game) (mon:steammon) (c:color) : unit =
       send_update (UpdateSteammon (mon.species,mon.curr_hp,mon.max_hp,Red))
 
     end
-  else 
+  | Blue ->  
     begin
       incr total_draft_count;
       Table.remove g.mon_table mon.species; 
@@ -150,19 +156,43 @@ let rec inventory_price (inv: inventory) (acc:int) : int =
     else if List.length inv = 2 then inventory_price t (acc + cCOST_XDEFEND)
     else inventory_price t (acc + cCOST_XSPEED)
 
-(* let process_status_effects (g:game) (mon:steammon) : unit = 
-  match mon.status with
-  | None -> ()
-  | Some effect -> match effect with
-    | Paralyzed
-    | Poisoned
-    | Asleep
-    | Burned
-    | Frozen
-    | Confused
+let rec set_active_steammon (lst: steammon list) (mon_name: string) : steammon list = 
+  let (result,new_lst) = List.fold_right (fun elem (mon,mon_list) -> 
+    if elem.species = mon_name 
+      then Some elem, mon_list 
+    else 
+      None,elem::mon_list) lst (None, []) in 
+  match result with
+  | None -> failwith "Error: steammon not found"
+  | Some x -> x::new_lst
 
- let process_move (g:game) (c:color) (mon:steammon) : unit =  *)
+let switch_steammon (g:game) (c:color) (mon_name:string) : unit = 
+  let default_modifier = {
+    attack_mod = 0;
+    defense_mod = 0;
+    spl_attack_mod = 0;
+    spl_defense_mod = 0;
+    speed_mod = 0} in
 
+  let reset_mods (lst: steammon list) : steammon list = 
+    match lst with
+    | [] -> failwith "No steammon drafted!"
+    | h::t -> 
+      {h with mods = default_modifier} :: t in 
+
+  match c with
+  | Red -> 
+    begin
+      g.red.mon_list <- reset_mods g.red.mon_list;
+      g.red.mon_list <- set_active_steammon g.red.mon_list mon_name;
+      SetChosenSteammon (mon_name)
+    end
+  | Blue ->
+    begin
+      g.blue.mon_list <- reset_mods g.blue.mon_list;
+      g.blue.mon_list <- set_active_steammon g.blue.mon_list mon_name;
+      SetChosenSteammon (mon_name)
+    end 
  
 
 let handle_step (g:game) (ra:command) (ba:command) : game_output =
@@ -226,9 +256,6 @@ let handle_step (g:game) (ra:command) (ba:command) : game_output =
        
       | Action(PickInventory red_inv), Action(PickInventory blue_inv) ->
 
-        send_update(Message ("Red: " ^ (List.hd g.red.mon_list).species ));
-        send_update(Message ("Blue: " ^ (List.hd g.blue.mon_list).species ));
-
         let default = cNUM_ETHER::cNUM_MAX_POTION::
           cNUM_REVIVE::cNUM_FULL_HEAL::cNUM_XATTACK::
           cNUM_XDEFENSE::cNUM_XSPEED::[] in 
@@ -242,7 +269,20 @@ let handle_step (g:game) (ra:command) (ba:command) : game_output =
         (None, game_data, Some(Request(StarterRequest(game_data))),
           Some(Request(StarterRequest(game_data))))
       | Action(SelectStarter red_starter), Action(SelectStarter blue_starter) ->
-        failwith "implement battle phase"   
+
+
+        g.red.mon_list <- set_active_steammon b.red.mon_list red_starter;
+        g.blue.mon_list <- set_active_steammon g.blue.mon_list blue_starter;
+        send_update (SetChosenSteammon red_starter);
+        send_update (SetChosenSteammon blue_starter);
+
+        let game_data = game_datafication g in 
+        (None, game_data, Some(Request(ActionRequest game_data)),
+          Some(Request(ActionRequest game_data)))
+
+
+
+
       | _, _ -> failwith "Not here yet"
 
 
