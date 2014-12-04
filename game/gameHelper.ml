@@ -2,6 +2,7 @@ open Definitions
 open Util
 open Constants
 open Netgraphics
+open Game
 
 module type STATE = sig 
   type player = {mutable mon_list: steammon list;
@@ -35,19 +36,14 @@ end
 (* Type phase enumerates the types of requests that can be sent out to players *)
 type phase = TeamNameRequest | PickRequest of color | PickInventoryRequest |
               StarterRequest | ActionRequest 
+type game = State.t
 
-type game = State.t  
 let first = ref Red
 let move_table = ref (Table.create 0)
 let mon_table = ref (Table.create 0)
 let total_draft_count = ref 0
 let last_drafted = ref Red
 let last_request_sent = ref TeamNameRequest
-
-let game_datafication (g:game) : game_status_data =
-  let red : team_data = (g.red.mon_list, g.red.inventory, g.red.credits) in
-  let blue : team_data = (g.blue.mon_list, g.blue.inventory, g.blue.credits) in 
-  (red,blue)
 
 (* finds player corresponding to color type *)
 (* requires: type color either red or blue *)
@@ -428,7 +424,6 @@ let use_item (g:game) (c:color) (item:item) (s:string) : unit =
           with Not_found -> Netgraphics.add_update (Message("Steammon not found!"))
         end
     end
-      
   else
     Netgraphics.add_update (Message("None in inventory!"))
 
