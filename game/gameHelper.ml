@@ -370,14 +370,18 @@ let use_item (g:game) (c:color) (item:item) (s:string) : unit =
               cost = target.cost
             } in
             if target.curr_hp > 0 then
-              Netgraphics.add_update (Item(string_of_item item,RestoredPP 5,team,
-                target.species));
-              Netgraphics.add_update (
-                UpdateSteammon(target.species,target.curr_hp,target.max_hp,team));
-              new_guy::acc
+              begin
+                Netgraphics.add_update (Item(string_of_item item,RestoredPP 5,team,
+                  target.species));
+                Netgraphics.add_update (
+                  UpdateSteammon(target.species,target.curr_hp,target.max_hp,team));
+                new_guy::acc
+              end
             else
-              Netgraphics.add_update (Message (target.species ^ " is fainted and can't use ether!"));
-              x::acc
+              begin
+                Netgraphics.add_update (Message (target.species ^ " is fainted and can't use ether!"));
+                x::acc
+              end
           end
         | MaxPotion ->
           begin
@@ -401,15 +405,19 @@ let use_item (g:game) (c:color) (item:item) (s:string) : unit =
               cost = target.cost
             } in
             if target.curr_hp > 0 then
-              Netgraphics.add_update (Item(string_of_item item,Recovered 100,
-                team,target.species));
-              Netgraphics.add_update (
-                UpdateSteammon(target.species,target.max_hp,target.max_hp,team));
-              new_guy::acc
+              begin  
+                Netgraphics.add_update (Item(string_of_item item,Recovered 100,
+                  team,target.species));
+                Netgraphics.add_update (
+                  UpdateSteammon(target.species,target.max_hp,target.max_hp,team));
+                new_guy::acc
+              end
             else
-              Netgraphics.add_update (Message
-                (target.species ^ " is fainted and can't be healed!"));
-              x::acc
+              begin
+                Netgraphics.add_update (Message
+                  (target.species ^ " is fainted and can't be healed!"));
+                x::acc
+              end
           end
         | Revive ->
           begin
@@ -433,15 +441,19 @@ let use_item (g:game) (c:color) (item:item) (s:string) : unit =
               cost = target.cost
             } in
             if target.curr_hp <= 0 then
-              Netgraphics.add_update (Item(string_of_item item,
-                Recovered 50,team,target.species));
-              Netgraphics.add_update (
-                UpdateSteammon(target.species,target.curr_hp,target.max_hp,team));
-              new_guy::acc
+              begin  
+                Netgraphics.add_update (Item(string_of_item item,
+                  Recovered 50,team,target.species));
+                Netgraphics.add_update (
+                  UpdateSteammon(target.species,target.curr_hp,target.max_hp,team));
+                new_guy::acc
+              end
             else
-              Netgraphics.add_update (Message
-                (target.species ^ " is not fainted and can't be revived!"));
-              x::acc
+              begin  
+                Netgraphics.add_update (Message
+                  (target.species ^ " is not fainted and can't be revived!"));
+                x::acc
+              end
           end
         | FullHeal ->
           begin
@@ -464,20 +476,20 @@ let use_item (g:game) (c:color) (item:item) (s:string) : unit =
               mods = target.mods;
               cost = target.cost
             } in
-            Netgraphics.add_update (Item(string_of_item item,HealedStatus 
-              target.status,team,target.species));
-            Netgraphics.add_update (
-              UpdateSteammon(target.species,target.curr_hp,target.max_hp,team))
             if target.status = None then
-              Netgraphics.add_update (Message
-                (target.species ^ " is not fainted and can't be revived!"));
-              x::acc
+              begin
+                Netgraphics.add_update (Message
+                  (target.species ^ " is not fainted and can't be revived!"));
+                x::acc
+              end
             else
-              Netgraphics.add_update (Item(string_of_item item,HealedStatus 
-                status,team,target.species));
-              Netgraphics.add_update (
-                UpdateSteammon(target.species,target.curr_hp,target.max_hp,team));
-              new_guy::acc
+              begin
+                Netgraphics.add_update (Item(string_of_item item,HealedStatus 
+                  status,team,target.species));
+                Netgraphics.add_update (
+                  UpdateSteammon(target.species,target.curr_hp,target.max_hp,team));
+                new_guy::acc
+              end
           end
         | XAttack ->
           begin
@@ -509,15 +521,20 @@ let use_item (g:game) (c:color) (item:item) (s:string) : unit =
               mods = new_mods;
               cost = target.cost
             } in
-            Netgraphics.add_update (Item(string_of_item item,StatModified 
-              (Atk,1),team,target.species));
-            Netgraphics.add_update (
-              UpdateSteammon(target.species,target.curr_hp,target.max_hp,team))
-            if target.curr_hp > 0 then new_guy::acc
+            if target.curr_hp > 0 then
+              begin
+                Netgraphics.add_update (Item(string_of_item item,StatModified 
+                  (Atk,1),team,target.species));
+                Netgraphics.add_update (
+                  UpdateSteammon(target.species,target.curr_hp,target.max_hp,team));
+                new_guy::acc
+              end
             else
-              Netgraphics.add_update (Message
-                (target.species ^ " is fainted and can't use XAttack!"));
-              x::acc
+              begin
+                Netgraphics.add_update (Message
+                  (target.species ^ " is fainted and can't use XAttack!"));
+                x::acc
+              end
           end
         | XDefense ->
           begin
@@ -549,15 +566,19 @@ let use_item (g:game) (c:color) (item:item) (s:string) : unit =
               mods = new_mods;
               cost = target.cost
             } in
-            Netgraphics.add_update (Item(string_of_item item,StatModified 
-              (Def,1),team,target.species));
-            Netgraphics.add_update (
-              UpdateSteammon(target.species,target.curr_hp,target.max_hp,team))
-            if target.curr_hp > 0 then new_guy::acc
-            else
-              Netgraphics.add_update (Message
-                (target.species ^ " is fainted and can't use XDefense!"));
-              x::acc
+            if target.curr_hp > 0 then
+              begin
+                Netgraphics.add_update (Item(string_of_item item,StatModified 
+                  (Def,1),team,target.species));
+                Netgraphics.add_update (
+                  UpdateSteammon(target.species,target.curr_hp,target.max_hp,team));
+                new_guy::acc
+              else
+                begin
+                  Netgraphics.add_update (Message
+                    (target.species ^ " is fainted and can't use XDefense!"));
+                  x::acc
+                end
           end
         | XSpeed ->
           begin
@@ -589,26 +610,32 @@ let use_item (g:game) (c:color) (item:item) (s:string) : unit =
               mods = new_mods;
               cost = target.cost
             } in
-            Netgraphics.add_update (Item(string_of_item item,StatModified
-              (SpD,1),team,target.species));
-            Netgraphics.add_update (
-              UpdateSteammon(target.species,target.curr_hp,target.max_hp,team))
-            if target.curr_hp > 0 then new_guy::acc
+            if target.curr_hp > 0 then
+              begin
+                Netgraphics.add_update (Item(string_of_item item,StatModified
+                  (SpD,1),team,target.species));
+                Netgraphics.add_update (
+                  UpdateSteammon(target.species,target.curr_hp,target.max_hp,team));
+                new_guy::acc
+              end
             else
-              Netgraphics.add_update (Message
-                (target.species ^ " is fainted and can't use XSpeed!"));
-              x::acc
+              begin
+                Netgraphics.add_update (Message
+                  (target.species ^ " is fainted and can't use XSpeed!"));
+                x::acc
+              end
           end
       else
-        Netgraphics.add_update (Message
-          (target.species ^ " not found!"));
-        x::acc
+        begin
+          Netgraphics.add_update (Message
+            (target.species ^ " not found!"));
+          x::acc
+        end
     ) [] player.mon_list
   if own_item then
     begin 
       player.inventory <- new_inventory;
       player.mon_list <- use_on (List.find (fun x -> x.species = s) player.mon_list);
-
     end
   else
     Netgraphics.add_update (Message("None in inventory!"))
