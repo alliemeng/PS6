@@ -86,6 +86,15 @@ let rec weredoomed (remlist: steammon list) : action =
         else weredoomed t
     | _ -> failwith "We done goofed" 
 
+let rec checkteam (opp: steammon) (team: steammon list) (eff: effectiveness) : action =
+  match team with
+  | [] -> raise NoMatchException
+  | h::t -> 
+    try 
+      ignore (checkforopweaknesses opp eff h);
+      SwitchSteammon(h.species)
+    with _ -> checkteam opp t eff
+
  (* allows the bot to know what color it is. *)
 let handle_request (c : color) (r : request) : action =
   match r with
@@ -213,11 +222,9 @@ let handle_request (c : color) (r : request) : action =
       let (mons, pack, credits) = my_team in
       let (opmons, oppack, opcredits) = op_team in
       let inplay = List.hd mons in
-      if (inplay.status <> None) then
-        let ins =
-          (match inplay.status with
-            | Some s -> s
-            | None -> failwith "wat") in
+      let ins = match inplay.status with
+        | Some t -> t
+        | None -> Frozen in
       let fainted = List.filter (fun elm -> elm.curr_hp = 0) mons in
       (* let optype1 = (match (List.hd opmons).first_type with
         | Some t -> t
@@ -249,16 +256,15 @@ let handle_request (c : color) (r : request) : action =
         with _ -> ( 
           (* Check for other party members with super-effective move *)
           try 
-            List.iter (fun opmonelm -> 
-            checkforopweaknesses opmonelm SuperEffective) (List.tl opmons) inplay
+            checkteam (List.hd opmons) mons SuperEffective
           with _ -> (
             (* Look for any move that that is Regular effectiveness and has PP *)
             try 
               checkforopweaknesses (List.hd opmons) Regular inplay
             with _ -> (
-              (* Check for other party members with egular effectiveness and has PP *)
-              try List.iter (fun opmonelm -> 
-                checkforopweaknesses opmonelm Regular) (List.tl opmons) inplay
+              (* Check for other party members with regular effectiveness and has PP *)
+              try 
+                checkteam (List.hd opmons) mons Regular
               with _ ->
                 (* Check for any PP-available moves *)
                 weredoomed mons))))
