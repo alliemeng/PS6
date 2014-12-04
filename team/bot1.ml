@@ -15,6 +15,10 @@ let name = "BOT"
 let _ = Random.self_init ()
 let roleslists = ref ([],[])
 
+let findmaxhp (stpool:steam_pool) (initacc: steammon): steammon =
+   List.fold_left (fun acc elm ->  if elm.max_hp > acc.max_hp 
+                                   then elm else acc) initacc stpool
+
 let pickInventoryHelper () : int list = 
   let inventarray = Array.make 7 0 in
   let nmaxpotion = (int_of_float ((float_of_int cINITIAL_CASH) *. (5.0/.8.0)))/cCOST_MAXPOTION in
@@ -147,27 +151,84 @@ let handle_request (c : color) (r : request) : action =
                 else a) (fst (!roleslists)) (List.hd (fst (!roleslists))) in
           SelectStarter(pick.species)
      
-    (* Sent during the battle phase to request that the player
-    chose its next action. *)
-    (*Notes: Check if target is self before using attack.*)
+
+    
+    (*if hp < 40%, use potion
+    elseif party member is dead, use revive
+    elseif steammon is burned, frozen, poisoned, use full heal
+    elseif PP > 0, select super-effective move
+    elseif PP > 0, select non-notveryeffective move
+    elseif swap steammon to one with above criteria 
+    else use whatever still has pp*)
     | ActionRequest (gr) ->
-        let (a1, b1) = gr in
-        let my_team = if c = Red then a1 else b1 in
-        let (mons, pack, credits) = my_team in
-        (match mons with
-        | h::t ->
-            if (h.first_move).pp_remaining >0 then
-              let _ = print_endline (h.species ^ "used " ^ ((h.first_move).name)) in
-                UseMove((h.first_move).name)
-            else if ((h.second_move).pp_remaining > 0) then
-              let _ = print_endline (h.species ^ "used " ^ ((h.second_move).name)) in
-                UseMove((h.second_move).name)
-            else if ((h.third_move).pp_remaining >0) then
-              let _ = print_endline (h.species ^ "used " ^ ((h.third_move).name)) in
-                UseMove((h.third_move).name)
-            else
-              let _ = print_endline (h.species ^ "used " ^ ((h.fourth_move).name)) in
-                UseMove((h.fourth_move).name)
-        | _ -> failwith "WHAT IN THE NAME OF ZARDOZ HAPPENED HERE")
-        
+      let (a1, b1) = gr in 
+      let my_team = if c = Red then a1 else b1 in
+      let op_team = if c = Red then b1 else a1 in
+      let (mons, pack, credits) = my_team in
+      let (opmons, oppack, opcredits) = op_team in
+      let inplay = List.hd mons in
+      let ins = inplay.status in
+      let fainted = List.filter (fun elm -> elm.curr_hp = 0) mons in
+      let optype1 = (match (List.hd opmons).first_type with
+        | Some t -> t
+          | None -> Typeless) in
+      let optype2 = (match (List.hd opmons).second_type with
+        | Some t -> t
+          | None -> Typeless) in
+      (* HP < 40% *)
+      if (inplay.curr_hp < (0.4 * inplay.max_hp)) then
+        UseItem((MaxPotion, inplay.species))
+      (* Party member is dead *)
+      else if fainted <> [] then
+          let defender = List.fold_right (fun a acc -> 
+                if (acc.defense >= a.defense) then acc
+              else a) (snd (!roleslists)) (List.hd (snd (!roleslists))) in
+              let spattacker = List.fold_right (fun a acc -> 
+                if (acc.spl_attack >= a.spl_attack) then acc
+              else a) (fst (!roleslists)) (List.hd (fst (!roleslists))) in
+                  if List.mem defender fainted then UseItem((Revive,defender.species))
+                    else if List.mem spattacker fainted then UseItem((Revive,spattacker.species))
+                    else UseItem((Revive, (findmaxhp fainted).species))
+      (* Burned, frozen , poisoned *)
+      else if (ins = Burned || ins = Frozen || ins = Poisoned then)
+        UseItem((FullHeal, inplay.species))
+      (* Look for super-effective move and check PP *)
+      else if ((weakness optype1 inplay.first_move.element) = SuperEffective ||
+      (weakness optype2 inplay.first_move.element) = SuperEffective) then
+        if (inplay.first_move.pp_remaining > 0) then
+          UserMove(inplay.first_move.name)
+      else if ((weakness optype1 inplay.first_move.element) = SuperEffective ||
+      (weakness optype2 inplay.second_move.element) = SuperEffective) then
+        if (inplay.second_move.pp_remaining > 0) then
+          UserMove(inplay.second_move.name)
+      else if ((weakness optype1 inplay.first_move.element) = SuperEffective ||
+      (weakness optype2 inplay.third_move.element) = SuperEffective) then
+        if (inplay.third_move.pp_remaining > 0) then
+          UserMove(inplay.third_move.name)
+      else if ((weakness optype1 inplay.first_move.element) = SuperEffective ||
+      (weakness optype2 inplay.fourth_move.element) = SuperEffective) then
+        if (inplay.fourth_move.pp_remaining > 0) then
+          UserMove(inplay.fourth_move.name)
+      (* Check for other party members with super-effective move *)
+
+      (* Look for any move that that is Regular effectiveness and has PP *)
+      else if ((weakness optype1 inplay.first_move.element) = Regular ||
+      (weakness optype2 inplay.first_move.element) = Regular) then
+        if (inplay.first_move.pp_remaining > 0) then
+          UserMove(inplay.first_move.name)
+      else if ((weakness optype1 inplay.first_move.element) = Regular ||
+      (weakness optype2 inplay.second_move.element) = Regular) then
+        if (inplay.second_move.pp_remaining > 0) then
+          UserMove(inplay.second_move.name)
+      else if ((weakness optype1 inplay.first_move.element) = Regular ||
+      (weakness optype2 inplay.third_move.element) = Regular) then
+        if (inplay.third_move.pp_remaining > 0) then
+          UserMove(inplay.third_move.name)
+      else if ((weakness optype1 inplay.first_move.element) = Regular ||
+      (weakness optype2 inplay.fourth_move.element) = Regular) then
+        if (inplay.fourth_move.pp_remaining > 0) then
+          UserMove(inplay.fourth_move.name)               
+
+      (* Check for any PP-available moves *)
+
 let () = run_bot handle_request
