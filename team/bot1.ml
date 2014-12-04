@@ -42,6 +42,16 @@ let pickanalysis (spool:steam_pool) (mysteams:steammon list): action =
         else PickSteammon((findmaxhp spool h).species)
       | [] -> failwith "no steammon to pick!"
 
+let pickInventoryHelper (cash: int ref) : int list = 
+  let inventarray = Array.make 7 0; 
+  (* let itemcosts = [cCOST_ETHER; cCOST_MAXPOTION; cCOST_FULLHEAL; 
+    cCOST_REVIVE; cCOST_XATTACK; cCOST_XDEFEND; cCOST_XSPEED]
+  let cheapitem = List.fold_left (fun acc elm -> if elm < acc then elm
+                                else acc) maxint itemcosts *)
+
+
+
+
 (* handle_request c r responds to a request r by returning an action. The color c 
  * allows the bot to know what color it is. *)
 let handle_request (c : color) (r : request) : action =
@@ -51,13 +61,8 @@ let handle_request (c : color) (r : request) : action =
     (* Sent during the inventory phase to request that the player
        purchase an inventory. *)
     | PickInventoryRequest (gsd) -> 
-        let (a1,b1) = gsd in
-        let my_team = if c = Red then a1 else b1 in
-        let (mons, pack, credits) = my_team in 
-
-          PickInventory(
-          [cNUM_ETHER;cNUM_MAX_POTION;cNUM_REVIVE;cNUM_FULL_HEAL;
-           cNUM_XATTACK;cNUM_XDEFENSE;cNUM_XSPEED])
+        let casham = ref cINITIAL_CASH in 
+        PickInventory(pickInventoryHelper casham)
 
    (* Sent during the draft phase to request that the player 
        draft a Steammon. *)
