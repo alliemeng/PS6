@@ -607,9 +607,9 @@ let use_item (g:game) (c:color) (item:item) (s:string) : unit =
   if own_item then
     begin 
       player.inventory <- new_inventory;
-      use_on (List.find (fun x -> x.species = s) player.mon_list)
+      player.mon_list <- use_on (List.find (fun x -> x.species = s) player.mon_list);
+
     end
-      
   else
     Netgraphics.add_update (Message("None in inventory!"))
 
