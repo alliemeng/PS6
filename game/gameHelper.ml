@@ -632,7 +632,7 @@ let use_item (g:game) (c:color) (item:item) (s:string) : unit =
             (target.species ^ " not found!"));
           x::acc
         end
-    ) [] player.mon_list
+    ) [] player.mon_list in
   if own_item then
     begin 
       player.inventory <- new_inventory;
