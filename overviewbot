@@ -46,4 +46,4 @@ battle stage:
 	elseif party member is dead, use revive
 	elseif PP > 0, select super-effective move
 	elseif swap steammon to one with above criteria
-	else PP > 0, select non-notveryeffective move
+	else PP > 0, select non-notveryeffective move 
