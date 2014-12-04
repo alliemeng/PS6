@@ -1,0 +1,9 @@
+#Pokemon,Type 1,Type 2,HP,Atk,Def,SpA,SpD,Spe,Move 1,Move 2,Move 3,Move 4,Cost
+Butterfree,Bug,Flying,261,126,136,196,196,176,SleepPowder,StunSpore,Psychic,SilverWind,80
+Weedle,Bug,Poison,221,106,96,76,76,136,PoisonSting,StringShot,Splash,Splash,5
+Kakuna,Bug,Poison,231,86,136,86,86,106,Harden,Harden,Harden,Harden,0
+Beedrill,Bug,Poison,271,196,116,126,196,186,SludgeBomb,AerialAce,SwordsDance,Agility,100
+Pidgey,Normal,Flying,221,126,116,106,106,148,Return,AirCutter,QuickAttack,Featherdance,15
+Pidgeotto,Normal,Flying,267,156,146,136,136,178,Return,AirCutter,QuickAttack,Featherdance,70
+Pidgeot,Normal,Flying,307,196,186,176,176,218,Return,AirCutter,QuickAttack,Featherdance,160
+Rattata,Normal,N/A,201,148,106,86,106,180,ShadowBall,ThunderWave,Return,QuickAttack,15
