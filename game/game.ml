@@ -76,7 +76,7 @@ let handle_step (g:game) (ra:command) (ba:command) : game_output =
               Netgraphics.add_update (SetFirstAttacker(Blue))
             end   
           (*Pick random team to start*)       
-          else 
+          else
             begin
               if Random.bool () then
                 begin 
@@ -88,9 +88,7 @@ let handle_step (g:game) (ra:command) (ba:command) : game_output =
                   first := Blue;
                   Netgraphics.add_update (SetFirstAttacker(Blue))  
                 end 
-            end
-                
-             in 
+            end in 
 
         let active_fainted (c:color) : bool = 
           let active_mon = List.hd (find_player c g).mon_list in 
@@ -101,7 +99,6 @@ let handle_step (g:game) (ra:command) (ba:command) : game_output =
           match  lst with
           | h::t -> lst <- {h with status = None} :: t
           | [] -> failwith "No steammon in team!!" in  *)
-
 
         let act (c:color) (action:command) : command option =
           match action with

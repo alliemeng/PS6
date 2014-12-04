@@ -1,4 +1,5 @@
 open Definitions
+open Util
 
 module type STATE = sig 
   type player = {mutable mon_list: steammon list;
@@ -21,6 +22,7 @@ val total_draft_count: int ref
 val last_drafted: color ref
 val last_request_sent: phase ref
 
+val game_datafication: game -> game_status_data
 val find_player: color -> State.player
 val pick_request_helper: game -> color -> game_output
 val handle_SendTeamName: game -> string -> string -> game_output
