@@ -19,7 +19,7 @@ bot behavior
 ------------
 draft stage: 
 	keep track:
-		- steammon credits (to avoid getting a trash steammon that costs 0)
+		- steammon credits (to avoid getting a trash steammon that costs 0) //given by the gsd
 		- whether or not they actually have normal moves or special moves that deal damage
 	behavior:
 		- if first pick: set cost ceiling at 3/8 of total available credits
@@ -34,7 +34,6 @@ starter pick:
 	subsequent deaths:
 		- select steammon with a super-effective move to opponent
 		- if none exist, select steammon with strongest attack
-		- elseif opponent is rock or steel, select any steammon with non-notveryeffective move
 inventory stage:
 		- total credits/cost of max potion
 			+ buy 5/8 total credits worth of potions
@@ -47,4 +46,4 @@ battle stage:
 	elseif party member is dead, use revive
 	elseif PP > 0, select super-effective move
 	elseif swap steammon to one with above criteria
-	else PP > 0, select non-notveryeffective move
+	else PP > 0, select non-notveryeffective move 
