@@ -11,46 +11,20 @@ open Constants
   Overall: This bot is more inward looking, moderately aggressive*)
 
 let name = "BOT" 
-
 let _ = Random.self_init ()
 
-let filterfortype (stp:steam_pool) (currentsteams:steammon list): steammon list =
-  match currentsteams with 
-    | [] -> stp
-    | h::t -> List.fold_left (fun acc stelm -> 
-              if (List.fold_left (fun acc cselm -> 
-              (stelm.first_type <> cselm.first_type 
-              && stelm.first_type <> cselm.second_type
-              && stelm.second_type <> cselm.first_type
-              && stelm.second_type <> cselm.second_type) && acc) 
-              true currentsteams)
-              then stelm::acc else acc)
-              [] stp
-
-let findmaxhp (stpool:steam_pool) (initacc: steammon): steammon =
-   List.fold_left (fun acc elm ->  if elm.max_hp > acc.max_hp 
-                                   then elm else acc) initacc stpool
-
-(*Chooses the Steammon with the highest hp that is of a type not yet represented in the list*)
-let pickanalysis (spool:steam_pool) (mysteams:steammon list): action = 
-   match spool with
-      | h::t ->
-      (*Always get chansey first???*)
-        let typefiltered = filterfortype spool mysteams in
-        if typefiltered <> [] then 
-        PickSteammon((findmaxhp typefiltered (List.hd typefiltered)).species)
-        else PickSteammon((findmaxhp spool h).species)
-      | [] -> failwith "no steammon to pick!"
-
-let pickInventoryHelper (cash: int ref) : int list = 
-  let inventarray = Array.make 7 0; 
-  (* let itemcosts = [cCOST_ETHER; cCOST_MAXPOTION; cCOST_FULLHEAL; 
-    cCOST_REVIVE; cCOST_XATTACK; cCOST_XDEFEND; cCOST_XSPEED]
-  let cheapitem = List.fold_left (fun acc elm -> if elm < acc then elm
-                                else acc) maxint itemcosts *)
-
-
-
+let pickInventoryHelper () : int list = 
+  let inventarray = Array.make 7 0 in
+  let nmaxpotion = (int_of_float ((float_of_int cINITIAL_CASH) *. (5.0/.8.0)))/cCOST_MAXPOTION in
+  let remainingcash = (cINITIAL_CASH - (nmaxpotion*cCOST_MAXPOTION)) in 
+  let nrevive = (int_of_float ((float_of_int remainingcash)*. (3.0/.4.0)))/cCOST_REVIVE in
+  let remcash = remainingcash - (nrevive* cCOST_REVIVE) in
+  let nfullheal = if remcash > cCOST_FULLHEAL then remcash/cCOST_FULLHEAL
+                  else 0 in
+  Array.set inventarray 1 nmaxpotion;
+  Array.set inventarray 3 nrevive;
+  Array.set inventarray 2 nfullheal;
+  Array.to_list inventarray
 
 (* handle_request c r responds to a request r by returning an action. The color c 
  * allows the bot to know what color it is. *)
@@ -61,8 +35,7 @@ let handle_request (c : color) (r : request) : action =
     (* Sent during the inventory phase to request that the player
        purchase an inventory. *)
     | PickInventoryRequest (gsd) -> 
-        let casham = ref cINITIAL_CASH in 
-        PickInventory(pickInventoryHelper casham)
+        PickInventory(pickInventoryHelper ())
 
    (* Sent during the draft phase to request that the player 
        draft a Steammon. *)
