@@ -13,8 +13,7 @@ open Util
 
 let name = "BOT" 
 let _ = Random.self_init ()
-
-let roleslists = ref ([],[]) 
+let roleslists = ref ([],[])
 
 let pickInventoryHelper () : int list = 
   let inventarray = Array.make 7 0 in
@@ -33,9 +32,7 @@ let pickInventoryHelper () : int list =
   let findcosteff (steampool: steam_pool) (maxcost:int) : steam_pool =
   List.filter (fun elm -> elm.cost < maxcost) steampool
 
-(* let pickfirst (steampool: steam_pool) : action =
-handle_request c r responds to a request r by returning an action. The color c 
- * allows the bot to know what color it is. *)
+ (* allows the bot to know what color it is. *)
 let handle_request (c : color) (r : request) : action =
 
   match r with
@@ -112,17 +109,35 @@ let handle_request (c : color) (r : request) : action =
         (* let opp_team = if my_team = a1 then b1 else a1 in
         let (omons,oinv,ocredits) = opp_team in 
         if omons = [] then pickfirst sp *)
-      
 
-    (* Sent at the beginning of the battle phase, or when the active 
+    (* Sent at the beginning ofSteamon() the battle phase, or when the active 
      * Steammon faints. *)
     | StarterRequest(gsd)->
         let (a1,b1) = gsd in
         let my_team = if c = Red then a1 else b1 in
+        let op_team = if c = Red then b1 else a1 in
         let (mons, pack, credits) = my_team in
+        let (opmons, oppack, opcredits) = op_team in
         let pick = 
-          try List.find(fun x -> x.curr_hp > 0) mons 
-          with _ -> (List.hd mons) in
+          (* Have not yet entered battle stage *)
+          if ((List.exists (fun x -> x.curr_hp != 0) mons) = true) then
+            (* Pick best defender *)
+            List.fold_right (fun a acc -> 
+              if (acc.defense >= a.defense) then acc
+              else a) (snd (!roleslists)) (List.hd (snd (!roleslists)))
+          (* One of your steammon has fainted *)
+          else
+            (* Look for super-effective move in party steammon *)
+            try (List.find (fun x ->
+              (weakness (match x.first_type with 
+              | Some t -> t
+              | None -> Typeless) (match ((List.hd (opmons)).first_type) with
+              | Some t -> t
+              | None -> Typeless)) = SuperEffective) mons)
+            (* Select steammon with strongest attack *)
+            with _ -> List.fold_right (fun a acc -> 
+              if (acc.attack >= a.attack) then acc
+              else a) (fst (!roleslists)) (List.hd (fst (!roleslists))) in
           SelectStarter(pick.species)
      
     (* Sent during the battle phase to request that the player
