@@ -15,6 +15,8 @@ let name = "BOT"
 let _ = Random.self_init ()
 let roleslists = ref ([],[])
 
+exception NoMatchException
+
 let findmaxhp (stpool:steam_pool) (initacc: steammon): steammon =
    List.fold_left (fun acc elm ->  if elm.max_hp > acc.max_hp 
                                    then elm else acc) initacc stpool
@@ -44,29 +46,29 @@ let checkforopweaknesses (opp:steammon) (efflevel:effectiveness) (inplay: steamm
     | Some t -> t
     | None -> Typeless) in
   if ((weakness optype1 inplay.first_move.element) = efflevel ||
-  (weakness optype2 inplay.first_move.element) = efflevel) then
-    if (inplay.first_move.pp_remaining > 0) then
-      let _ = print_endline (inplay.species ^ "used " ^ ((inplay.first_move).name)) in
-      UserMove(inplay.first_move.name)
+  (weakness optype2 inplay.first_move.element) = efflevel &&
+  (inplay.first_move.pp_remaining > 0)) then
+    let _ = print_endline (inplay.species ^ "used " ^ ((inplay.first_move).name)) in
+    UseMove(inplay.first_move.name)
   else if ((weakness optype1 inplay.first_move.element) = efflevel ||
-  (weakness optype2 inplay.second_move.element) = efflevel) then
-    if (inplay.second_move.pp_remaining > 0) then
-      let _ = print_endline (inplay.species ^ "used " ^ ((inplay.second_move).name)) in
-      UserMove(inplay.second_move.name)
+  (weakness optype2 inplay.second_move.element) = efflevel &&
+  (inplay.second_move.pp_remaining > 0)) then
+    let _ = print_endline (inplay.species ^ "used " ^ ((inplay.second_move).name)) in
+    UseMove(inplay.second_move.name)
   else if ((weakness optype1 inplay.first_move.element) = efflevel ||
-  (weakness optype2 inplay.third_move.element) = efflevel) then
-    if (inplay.third_move.pp_remaining > 0) then
-      let _ = print_endline (inplay.species ^ "used " ^ ((inplay.third_move).name)) in
-      UserMove(inplay.third_move.name)
+  (weakness optype2 inplay.third_move.element) = efflevel &&
+  (inplay.third_move.pp_remaining > 0)) then
+    let _ = print_endline (inplay.species ^ "used " ^ ((inplay.third_move).name)) in
+    UseMove(inplay.third_move.name)
   else if ((weakness optype1 inplay.first_move.element) = efflevel ||
-  (weakness optype2 inplay.fourth_move.element) = efflevel) then
-    if (inplay.fourth_move.pp_remaining > 0) then
+  (weakness optype2 inplay.fourth_move.element) = efflevel &&
+  (inplay.fourth_move.pp_remaining > 0)) then
       let _ = print_endline (inplay.species ^ "used " ^ ((inplay.fourth_move).name)) in
-      UserMove(inplay.fourth_move.name) 
+      UseMove(inplay.fourth_move.name) 
   else
-    raise Exception
+    raise NoMatchException
 
-let rec weredoomed (remlist: steamon list) : action =
+let rec weredoomed (remlist: steammon list) : action =
   match remlist with
     | h::t ->
         if (h.first_move).pp_remaining >0 then
@@ -170,7 +172,7 @@ let handle_request (c : color) (r : request) : action =
       let (opmons, oppack, opcredits) = op_team in
       let pick = 
         (* Have not yet entered battle stage *)
-        if ((List.exists (fun x -> x.curr_hp != 0) mons) = true) then
+        if ((List.exists (fun x -> x.curr_hp <> 0) mons) = true) then
           (* Pick best defender *)
           List.fold_right (fun a acc -> 
             if (acc.defense >= a.defense) then acc
@@ -211,7 +213,11 @@ let handle_request (c : color) (r : request) : action =
       let (mons, pack, credits) = my_team in
       let (opmons, oppack, opcredits) = op_team in
       let inplay = List.hd mons in
-      let ins = inplay.status in
+      if (inplay.status <> None) then
+        let ins =
+          (match inplay.status with
+            | Some s -> s
+            | None -> failwith "wat") in
       let fainted = List.filter (fun elm -> elm.curr_hp = 0) mons in
       (* let optype1 = (match (List.hd opmons).first_type with
         | Some t -> t
@@ -220,21 +226,21 @@ let handle_request (c : color) (r : request) : action =
         | Some t -> t
           | None -> Typeless) in *)
       (* HP < 40% *)
-      if (inplay.curr_hp < (0.4 * inplay.max_hp)) then
+      if (float_of_int (inplay.curr_hp) < (0.4 *. float_of_int (inplay.max_hp))) then
         UseItem((MaxPotion, inplay.species))
       (* Party member is dead *)
       else if fainted <> [] then
           let defender = List.fold_right (fun a acc -> 
-                if (acc.defense >= a.defense) then acc
+              if (acc.defense >= a.defense) then acc
               else a) (snd (!roleslists)) (List.hd (snd (!roleslists))) in
-              let spattacker = List.fold_right (fun a acc -> 
-                if (acc.spl_attack >= a.spl_attack) then acc
+          let spattacker = List.fold_right (fun a acc -> 
+              if (acc.spl_attack >= a.spl_attack) then acc
               else a) (fst (!roleslists)) (List.hd (fst (!roleslists))) in
-                  if List.mem defender fainted then UseItem((Revive,defender.species))
-                    else if List.mem spattacker fainted then UseItem((Revive,spattacker.species))
-                    else UseItem((Revive, (findmaxhp fainted).species))
+          if List.mem defender fainted then UseItem((Revive,defender.species))
+          else if List.mem spattacker fainted then UseItem((Revive,spattacker.species))
+          else UseItem((Revive, (findmaxhp fainted (List.hd (fainted))).species))
       (* Burned, frozen , poisoned *)
-      else if (ins = Burned || ins = Frozen || ins = Poisoned) then
+      else if (inplay.status <> None) && (ins = Burned || ins = Frozen || ins = Poisoned) then
         UseItem((FullHeal, inplay.species))
       (* Look for super-effective move and check PP *)
       else (
@@ -261,37 +267,37 @@ let handle_request (c : color) (r : request) : action =
       (* else if ((weakness optype1 inplay.first_move.element) = SuperEffective ||
       (weakness optype2 inplay.first_move.element) = SuperEffective) then
         if (inplay.first_move.pp_remaining > 0) then
-          UserMove(inplay.first_move.name)
+          UseMove(inplay.first_move.name)
       else if ((weakness optype1 inplay.first_move.element) = SuperEffective ||
       (weakness optype2 inplay.second_move.element) = SuperEffective) then
         if (inplay.second_move.pp_remaining > 0) then
-          UserMove(inplay.second_move.name)
+          UseMove(inplay.second_move.name)
       else if ((weakness optype1 inplay.first_move.element) = SuperEffective ||
       (weakness optype2 inplay.third_move.element) = SuperEffective) then
         if (inplay.third_move.pp_remaining > 0) then
-          UserMove(inplay.third_move.name)
+          UseMove(inplay.third_move.name)
       else if ((weakness optype1 inplay.first_move.element) = SuperEffective ||
       (weakness optype2 inplay.fourth_move.element) = SuperEffective) then
         if (inplay.fourth_move.pp_remaining > 0) then
-          UserMove(inplay.fourth_move.name) *)
+          UseMove(inplay.fourth_move.name) *)
       
       
      (*  else if ((weakness optype1 inplay.first_move.element) = Regular ||
       (weakness optype2 inplay.first_move.element) = Regular) then
         if (inplay.first_move.pp_remaining > 0) then
-          UserMove(inplay.first_move.name)
+          UseMove(inplay.first_move.name)
       else if ((weakness optype1 inplay.first_move.element) = Regular ||
       (weakness optype2 inplay.second_move.element) = Regular) then
         if (inplay.second_move.pp_remaining > 0) then
-          UserMove(inplay.second_move.name)
+          UseMove(inplay.second_move.name)
       else if ((weakness optype1 inplay.first_move.element) = Regular ||
       (weakness optype2 inplay.third_move.element) = Regular) then
         if (inplay.third_move.pp_remaining > 0) then
-          UserMove(inplay.third_move.name)
+          UseMove(inplay.third_move.name)
       else if ((weakness optype1 inplay.first_move.element) = Regular ||
       (weakness optype2 inplay.fourth_move.element) = Regular) then
         if (inplay.fourth_move.pp_remaining > 0) then
-          UserMove(inplay.fourth_move.name)  *)              
+          UseMove(inplay.fourth_move.name)  *)              
 
      
 
