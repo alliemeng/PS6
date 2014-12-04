@@ -573,12 +573,13 @@ let use_item (g:game) (c:color) (item:item) (s:string) : unit =
                 Netgraphics.add_update (
                   UpdateSteammon(target.species,target.curr_hp,target.max_hp,team));
                 new_guy::acc
-              else
-                begin
-                  Netgraphics.add_update (Message
-                    (target.species ^ " is fainted and can't use XDefense!"));
-                  x::acc
-                end
+              end
+            else
+              begin
+                Netgraphics.add_update (Message
+                  (target.species ^ " is fainted and can't use XDefense!"));
+                x::acc
+              end
           end
         | XSpeed ->
           begin
