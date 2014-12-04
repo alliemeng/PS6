@@ -34,7 +34,6 @@ starter pick:
 	subsequent deaths:
 		- select steammon with a super-effective move to opponent
 		- if none exist, select steammon with strongest attack
-		- elseif opponent is rock or steel, select any steammon with non-notveryeffective move
 inventory stage:
 		- total credits/cost of max potion
 			+ buy 5/8 total credits worth of potions
