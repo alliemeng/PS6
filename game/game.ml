@@ -61,7 +61,7 @@ let handle_step (g:game) (ra:command) (ba:command) : game_output =
           handle_SelectStarter g "" blue_starter
       | DoNothing, DoNothing -> handle_SelectStarter g "" ""
       | _,_ -> failwith "Invalid response from bot(s)")
-    | ActionRequest -> (
+    | ActionRequest -> 
         let find_first () : unit =
           let red_speed = (List.hd g.red.mon_list).speed in
           let blue_speed = (List.hd g.blue.mon_list).speed in
@@ -123,7 +123,7 @@ let handle_step (g:game) (ra:command) (ba:command) : game_output =
                 Some(Request(ActionRequest(game_data)))
 
           | Action (UseMove m) ->
-              handle_ActionRequest g c m;
+              use_move g c m;
               let game_data = game_datafication g in
               if active_fainted c then
                 begin 
@@ -140,10 +140,16 @@ let handle_step (g:game) (ra:command) (ba:command) : game_output =
             
             
           | _ -> failwith "Invalid bot response" in 
-
+        send_update (Message ((string_of_color !first)^" goes first"));
         find_first (); 
         (*Placeholder, fix later*)
-        (None, game_datafication g, act Red ra, act Blue ra))
+        if !first = Red then
+            let r = act Red ra in
+            let b = act Blue ba in 
+            (None, game_datafication g, act Red ra, act Blue ra)
+
+        else let b = act Blue ba in let r = act Red ra in 
+        (None, game_datafication g, act Red ra, act Blue ra)
 
 
 
