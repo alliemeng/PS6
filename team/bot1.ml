@@ -33,125 +33,169 @@ let pickInventoryHelper () : int list =
   Array.to_list inventarray
 
   (* let findinsp (field: string)  *)
-  let findcosteff (steampool: steam_pool) (maxcost:int) : steam_pool =
+let findcosteff (steampool: steam_pool) (maxcost:int) : steam_pool =
   List.filter (fun elm -> elm.cost < maxcost) steampool
+
+let checkforopweaknesses (opp:steammon) (efflevel:effectiveness) (inplay: steammon) : action =
+  let optype1 = (match opp.first_type with
+    | Some t -> t
+    | None -> Typeless) in
+  let optype2 = (match opp.second_type with
+    | Some t -> t
+    | None -> Typeless) in
+  if ((weakness optype1 inplay.first_move.element) = efflevel ||
+  (weakness optype2 inplay.first_move.element) = efflevel) then
+    if (inplay.first_move.pp_remaining > 0) then
+      let _ = print_endline (inplay.species ^ "used " ^ ((inplay.first_move).name)) in
+      UserMove(inplay.first_move.name)
+  else if ((weakness optype1 inplay.first_move.element) = efflevel ||
+  (weakness optype2 inplay.second_move.element) = efflevel) then
+    if (inplay.second_move.pp_remaining > 0) then
+      let _ = print_endline (inplay.species ^ "used " ^ ((inplay.second_move).name)) in
+      UserMove(inplay.second_move.name)
+  else if ((weakness optype1 inplay.first_move.element) = efflevel ||
+  (weakness optype2 inplay.third_move.element) = efflevel) then
+    if (inplay.third_move.pp_remaining > 0) then
+      let _ = print_endline (inplay.species ^ "used " ^ ((inplay.third_move).name)) in
+      UserMove(inplay.third_move.name)
+  else if ((weakness optype1 inplay.first_move.element) = efflevel ||
+  (weakness optype2 inplay.fourth_move.element) = efflevel) then
+    if (inplay.fourth_move.pp_remaining > 0) then
+      let _ = print_endline (inplay.species ^ "used " ^ ((inplay.fourth_move).name)) in
+      UserMove(inplay.fourth_move.name) 
+  else
+    raise Exception
+
+let rec weredoomed (remlist: steamon list) : action =
+  match remlist with
+    | h::t ->
+        if (h.first_move).pp_remaining >0 then
+          let _ = print_endline (h.species ^ "used " ^ ((h.first_move).name)) in
+          UseMove((h.first_move).name)
+        else if (h.second_move).pp_remaining > 0 then
+          let _ = print_endline (h.species ^ "used " ^ ((h.second_move).name)) in
+          UseMove((h.second_move).name)
+        else if (h.third_move).pp_remaining > 0 then
+          let _ = print_endline (h.species ^ "used " ^ ((h.third_move).name)) in
+          UseMove((h.third_move).name)
+        else if (h.fourth_move).pp_remaining > 0 then
+          let _ = print_endline (h.species ^ "used " ^ ((h.fourth_move).name)) in
+          UseMove((h.fourth_move).name) 
+        else weredoomed t
+    | _ -> failwith "We done goofed" 
 
  (* allows the bot to know what color it is. *)
 let handle_request (c : color) (r : request) : action =
-
   match r with
     | TeamNameRequest -> SendTeamName(name)
 
     (* Sent during the inventory phase to request that the player
        purchase an inventory. *)
     | PickInventoryRequest (gsd) -> 
-        PickInventory(pickInventoryHelper ())
+      PickInventory(pickInventoryHelper ())
 
    (* Sent during the draft phase to request that the player 
        draft a Steammon. *)
     | PickRequest(col, gsd, moves, sp) ->
-        
-        let (a1,b1) = gsd in
-        let my_team = if c = Red then a1 else b1 in
-        let (mons,items,credits) = my_team in 
-        let lengthmons = List.length mons in
-        (*pick best defender*)
-        if lengthmons = 0 then 
-         let avail = findcosteff sp (int_of_float ((float_of_int cSTEAMMON_CREDITS)*. (3.0/.8.0))) in
-         let picked = (List.fold_left (fun acc elm ->
-          if elm.defense > acc.defense then elm else acc) (List.hd avail) avail) in 
-          let (attackers,defenders) = !roleslists in 
-          roleslists := (attackers, picked::defenders);
-          PickSteammon(picked.species) 
+      let (a1,b1) = gsd in
+      let my_team = if c = Red then a1 else b1 in
+      let (mons,items,credits) = my_team in 
+      let lengthmons = List.length mons in
+      (*pick best defender*)
+      if lengthmons = 0 then 
+        let avail = findcosteff sp (int_of_float ((float_of_int cSTEAMMON_CREDITS)*. (3.0/.8.0))) in
+        let picked = (List.fold_left (fun acc elm ->
+        if elm.defense > acc.defense then elm else acc) (List.hd avail) avail) in 
+        let (attackers,defenders) = !roleslists in 
+        roleslists := (attackers, picked::defenders);
+        PickSteammon(picked.species) 
 
-          (*pick best special attacker*)
-         else if lengthmons = 1 then
-          let avail = findcosteff sp (int_of_float ((float_of_int cSTEAMMON_CREDITS)*. (3.0/.8.0))) in
-          let picked = List.fold_left (fun acc elm ->
-          if elm.spl_attack > acc.spl_attack then elm else acc) (List.hd avail) avail in
-          let (attackers,defenders) = !roleslists in 
-          roleslists := (picked::attackers, defenders);
-          PickSteammon(picked.species) 
+      (*pick best special attacker*)
+      else if lengthmons = 1 then
+        let avail = findcosteff sp (int_of_float ((float_of_int cSTEAMMON_CREDITS)*. (3.0/.8.0))) in
+        let picked = List.fold_left (fun acc elm ->
+        if elm.spl_attack > acc.spl_attack then elm else acc) (List.hd avail) avail in
+        let (attackers,defenders) = !roleslists in 
+        roleslists := (picked::attackers, defenders);
+        PickSteammon(picked.species) 
 
-          (*pick best special defender*)
-        else if lengthmons = 2 then
-          let avail = findcosteff sp (int_of_float ((float_of_int cSTEAMMON_CREDITS)*. (1.0/.8.0))) in
-          let picked = List.fold_left (fun acc elm ->
-          if elm.spl_defense> acc.spl_defense then elm else acc) (List.hd avail) avail in
-          let (attackers,defenders) = !roleslists in 
-          roleslists := (attackers, picked::defenders);
-          PickSteammon(picked.species)
+      (*pick best special defender*)
+      else if lengthmons = 2 then
+        let avail = findcosteff sp (int_of_float ((float_of_int cSTEAMMON_CREDITS)*. (1.0/.8.0))) in
+        let picked = List.fold_left (fun acc elm ->
+        if elm.spl_defense> acc.spl_defense then elm else acc) (List.hd avail) avail in
+        let (attackers,defenders) = !roleslists in 
+        roleslists := (attackers, picked::defenders);
+        PickSteammon(picked.species)
 
-          (*pick best attacker*)
-        else if lengthmons = 3 then
-          let avail = findcosteff sp (int_of_float ((float_of_int cSTEAMMON_CREDITS)*. (1.0/.8.0))) in
-          let picked = List.fold_left (fun acc elm ->
-          if elm.attack > acc.attack then elm else acc) (List.hd avail) avail in
-          let (attackers,defenders) = !roleslists in 
-          roleslists := (picked::attackers, defenders);
-          PickSteammon(picked.species) 
+      (*pick best attacker*)
+      else if lengthmons = 3 then
+        let avail = findcosteff sp (int_of_float ((float_of_int cSTEAMMON_CREDITS)*. (1.0/.8.0))) in
+        let picked = List.fold_left (fun acc elm ->
+        if elm.attack > acc.attack then elm else acc) (List.hd avail) avail in
+        let (attackers,defenders) = !roleslists in 
+        roleslists := (picked::attackers, defenders);
+        PickSteammon(picked.species) 
 
-          (*pick best defender*)
-        else if lengthmons = 4 then
-          let avail = findcosteff sp (int_of_float ((float_of_int credits)/.2.0)) in
-          let picked = List.fold_left (fun acc elm ->
-          if elm.defense > acc.defense then elm else acc) (List.hd avail) avail in 
-          let (attackers,defenders) = !roleslists in 
-          roleslists := (attackers, picked::defenders);
-          PickSteammon(picked.species)
+      (*pick best defender*)
+      else if lengthmons = 4 then
+        let avail = findcosteff sp (int_of_float ((float_of_int credits)/.2.0)) in
+        let picked = List.fold_left (fun acc elm ->
+        if elm.defense > acc.defense then elm else acc) (List.hd avail) avail in 
+        let (attackers,defenders) = !roleslists in 
+        roleslists := (attackers, picked::defenders);
+        PickSteammon(picked.species)
 
-          (*pick best special attacker*)
-        (*if lengthmons = 5*)
-        else 
-          let avail = findcosteff sp credits in
-          let picked = List.fold_left (fun acc elm ->
-          if elm.spl_attack> acc.spl_attack then elm else acc) (List.hd avail) avail in 
-          let (attackers,defenders) = !roleslists in 
-          roleslists := (picked::attackers, defenders);
-          PickSteammon(picked.species) 
+      (*pick best special attacker*)
+      (*if lengthmons = 5*)
+      else 
+        let avail = findcosteff sp credits in
+        let picked = List.fold_left (fun acc elm ->
+        if elm.spl_attack> acc.spl_attack then elm else acc) (List.hd avail) avail in 
+        let (attackers,defenders) = !roleslists in 
+        roleslists := (picked::attackers, defenders);
+        PickSteammon(picked.species) 
 
-        (* let opp_team = if my_team = a1 then b1 else a1 in
-        let (omons,oinv,ocredits) = opp_team in 
-        if omons = [] then pickfirst sp *)
+      (* let opp_team = if my_team = a1 then b1 else a1 in
+      let (omons,oinv,ocredits) = opp_team in 
+      if omons = [] then pickfirst sp *)
 
     (* Sent at the beginning ofSteamon() the battle phase, or when the active 
      * Steammon faints. *)
     | StarterRequest(gsd)->
-        let (a1,b1) = gsd in
-        let my_team = if c = Red then a1 else b1 in
-        let op_team = if c = Red then b1 else a1 in
-        let (mons, pack, credits) = my_team in
-        let (opmons, oppack, opcredits) = op_team in
-        let pick = 
-          (* Have not yet entered battle stage *)
-          if ((List.exists (fun x -> x.curr_hp != 0) mons) = true) then
-            (* Pick best defender *)
-            List.fold_right (fun a acc -> 
-              if (acc.defense >= a.defense) then acc
-              else a) (snd (!roleslists)) (List.hd (snd (!roleslists)))
-          (* One of your steammon has fainted *)
-          else
-            (* Look for super-effective move in party steammon *)
+      let (a1,b1) = gsd in
+      let my_team = if c = Red then a1 else b1 in
+      let op_team = if c = Red then b1 else a1 in
+      let (mons, pack, credits) = my_team in
+      let (opmons, oppack, opcredits) = op_team in
+      let pick = 
+        (* Have not yet entered battle stage *)
+        if ((List.exists (fun x -> x.curr_hp != 0) mons) = true) then
+          (* Pick best defender *)
+          List.fold_right (fun a acc -> 
+            if (acc.defense >= a.defense) then acc
+            else a) (snd (!roleslists)) (List.hd (snd (!roleslists)))
+        (* One of your steammon has fainted *)
+        else
+          (* Look for super-effective move in party steammon *)
+          try (List.find (fun x ->
+            (weakness (match x.first_type with 
+            | Some t -> t
+            | None -> Typeless) (match ((List.hd (opmons)).first_type) with
+            | Some t -> t
+            | None -> Typeless)) = SuperEffective) mons)
+          (* Select steammon with strongest attack *)
+          with _ ->
             try (List.find (fun x ->
-              (weakness (match x.first_type with 
-              | Some t -> t
-              | None -> Typeless) (match ((List.hd (opmons)).first_type) with
-              | Some t -> t
-              | None -> Typeless)) = SuperEffective) mons)
-            (* Select steammon with strongest attack *)
-            with _ ->
-              try (List.find (fun x ->
-              (weakness (match x.first_type with 
-              | Some t -> t
-              | None -> Typeless) (match ((List.hd (opmons)).second_type) with
-              | Some t -> t
-              | None -> Typeless)) = SuperEffective) mons)
-              with _ -> List.fold_right (fun a acc -> 
-                if (acc.attack >= a.attack) then acc
-                else a) (fst (!roleslists)) (List.hd (fst (!roleslists))) in
-          SelectStarter(pick.species)
-     
-
+            (weakness (match x.first_type with 
+            | Some t -> t
+            | None -> Typeless) (match ((List.hd (opmons)).second_type) with
+            | Some t -> t
+            | None -> Typeless)) = SuperEffective) mons)
+            with _ -> List.fold_right (fun a acc -> 
+              if (acc.attack >= a.attack) then acc
+              else a) (fst (!roleslists)) (List.hd (fst (!roleslists))) in
+        SelectStarter(pick.species)
     
     (*if hp < 40%, use potion
     elseif party member is dead, use revive
@@ -169,12 +213,12 @@ let handle_request (c : color) (r : request) : action =
       let inplay = List.hd mons in
       let ins = inplay.status in
       let fainted = List.filter (fun elm -> elm.curr_hp = 0) mons in
-      let optype1 = (match (List.hd opmons).first_type with
+      (* let optype1 = (match (List.hd opmons).first_type with
         | Some t -> t
           | None -> Typeless) in
       let optype2 = (match (List.hd opmons).second_type with
         | Some t -> t
-          | None -> Typeless) in
+          | None -> Typeless) in *)
       (* HP < 40% *)
       if (inplay.curr_hp < (0.4 * inplay.max_hp)) then
         UseItem((MaxPotion, inplay.species))
@@ -190,10 +234,31 @@ let handle_request (c : color) (r : request) : action =
                     else if List.mem spattacker fainted then UseItem((Revive,spattacker.species))
                     else UseItem((Revive, (findmaxhp fainted).species))
       (* Burned, frozen , poisoned *)
-      else if (ins = Burned || ins = Frozen || ins = Poisoned then)
+      else if (ins = Burned || ins = Frozen || ins = Poisoned) then
         UseItem((FullHeal, inplay.species))
       (* Look for super-effective move and check PP *)
-      else if ((weakness optype1 inplay.first_move.element) = SuperEffective ||
+      else (
+        try 
+          (checkforopweaknesses (List.hd opmons) SuperEffective inplay)
+        with _ -> ( 
+          (* Check for other party members with super-effective move *)
+          try 
+            List.iter (fun opmonelm -> 
+            checkforopweaknesses opmonelm SuperEffective) (List.tl opmons) inplay
+          with _ -> (
+            (* Look for any move that that is Regular effectiveness and has PP *)
+            try 
+              checkforopweaknesses (List.hd opmons) Regular inplay
+            with _ -> (
+              (* Check for other party members with egular effectiveness and has PP *)
+              try List.iter (fun opmonelm -> 
+                checkforopweaknesses opmonelm Regular) (List.tl opmons) inplay
+              with _ ->
+                (* Check for any PP-available moves *)
+                weredoomed mons))))
+
+
+      (* else if ((weakness optype1 inplay.first_move.element) = SuperEffective ||
       (weakness optype2 inplay.first_move.element) = SuperEffective) then
         if (inplay.first_move.pp_remaining > 0) then
           UserMove(inplay.first_move.name)
@@ -208,11 +273,10 @@ let handle_request (c : color) (r : request) : action =
       else if ((weakness optype1 inplay.first_move.element) = SuperEffective ||
       (weakness optype2 inplay.fourth_move.element) = SuperEffective) then
         if (inplay.fourth_move.pp_remaining > 0) then
-          UserMove(inplay.fourth_move.name)
-      (* Check for other party members with super-effective move *)
-
-      (* Look for any move that that is Regular effectiveness and has PP *)
-      else if ((weakness optype1 inplay.first_move.element) = Regular ||
+          UserMove(inplay.fourth_move.name) *)
+      
+      
+     (*  else if ((weakness optype1 inplay.first_move.element) = Regular ||
       (weakness optype2 inplay.first_move.element) = Regular) then
         if (inplay.first_move.pp_remaining > 0) then
           UserMove(inplay.first_move.name)
@@ -227,8 +291,9 @@ let handle_request (c : color) (r : request) : action =
       else if ((weakness optype1 inplay.first_move.element) = Regular ||
       (weakness optype2 inplay.fourth_move.element) = Regular) then
         if (inplay.fourth_move.pp_remaining > 0) then
-          UserMove(inplay.fourth_move.name)               
+          UserMove(inplay.fourth_move.name)  *)              
 
-      (* Check for any PP-available moves *)
+     
 
+     
 let () = run_bot handle_request

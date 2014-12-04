@@ -2,6 +2,7 @@ open Definitions
 open Util
 open Constants
 open Netgraphics
+open Game
 
 module type STATE = sig 
   type player = {mutable mon_list: steammon list;
@@ -35,19 +36,14 @@ end
 (* Type phase enumerates the types of requests that can be sent out to players *)
 type phase = TeamNameRequest | PickRequest of color | PickInventoryRequest |
               StarterRequest | ActionRequest 
+type game = State.t
 
-type game = State.t  
 let first = ref Red
 let move_table = ref (Table.create 0)
 let mon_table = ref (Table.create 0)
 let total_draft_count = ref 0
 let last_drafted = ref Red
 let last_request_sent = ref TeamNameRequest
-
-let game_datafication (g:game) : game_status_data =
-  let red : team_data = (g.red.mon_list, g.red.inventory, g.red.credits) in
-  let blue : team_data = (g.blue.mon_list, g.blue.inventory, g.blue.credits) in 
-  (red,blue)
 
 (* finds player corresponding to color type *)
 (* requires: type color either red or blue *)
@@ -302,7 +298,7 @@ let handle_SelectStarter (g:game) (r_starter:string)
 
 let use_item (g:game) (c:color) (item:item) (s:string) : unit =
   Netgraphics.add_update (Message((string_of_color c) ^ " team used " ^
-    string_of_item item ^ "on " ^ s ^ "!"));
+    string_of_item item ^ " on " ^ s ^ "!"));
   let player = find_player c g in
   let (own_item, new_inventory) = match player.inventory with
     | [ether;max;revive;heal;attack;defense;speed] ->
@@ -351,7 +347,6 @@ let use_item (g:game) (c:color) (item:item) (s:string) : unit =
               Netgraphics.add_update (
                 UpdateSteammon(target.species,target.curr_hp,target.max_hp,team))
             end
-        
     | MaxPotion ->
         if target.curr_hp > 0 then
           begin 
@@ -362,7 +357,7 @@ let use_item (g:game) (c:color) (item:item) (s:string) : unit =
               UpdateSteammon(target.species,target.max_hp,target.max_hp,team));
           end
         else
-          Netgraphics.add_update (Message (s ^ "is fainted and can't be healed!"))
+          Netgraphics.add_update (Message (s ^ " is fainted and can't be healed!"))
     | Revive ->
         if target.curr_hp = 0 then
           begin
@@ -372,9 +367,8 @@ let use_item (g:game) (c:color) (item:item) (s:string) : unit =
             Netgraphics.add_update (
               UpdateSteammon(target.species,target.curr_hp,target.max_hp,team)) 
           end
-          
         else
-          Netgraphics.add_update (Message (s ^ "is not fainted and can't be revived!"))
+          Netgraphics.add_update (Message (s ^ " is not fainted and can't be revived!"))
     | FullHeal ->
         (match target.status with 
         | None -> 
@@ -387,42 +381,36 @@ let use_item (g:game) (c:color) (item:item) (s:string) : unit =
             Netgraphics.add_update (
               UpdateSteammon(target.species,target.curr_hp,target.max_hp,team))
           end)
-        
     | XAttack ->
-      if target.mods.attack_mod + 1 >= 6 then target.mods.attack_mod <- 6
-      else 
-        begin
-          target.mods.attack_mod <- target.mods.attack_mod + 1;
-          Netgraphics.add_update (Item(string_of_item item,StatModified 
-            (Atk,1),team,target.species));
-          Netgraphics.add_update (
-            UpdateSteammon(target.species,target.curr_hp,target.max_hp,team))
-        end
-          
+        if target.mods.attack_mod + 1 >= 6 then target.mods.attack_mod <- 6
+        else 
+          begin
+            target.mods.attack_mod <- target.mods.attack_mod + 1;
+            Netgraphics.add_update (Item(string_of_item item,StatModified 
+              (Atk,1),team,target.species));
+            Netgraphics.add_update (
+              UpdateSteammon(target.species,target.curr_hp,target.max_hp,team))
+          end
     | XDefense ->
-        
-      if target.mods.defense_mod + 1 >= 6 then target.mods.defense_mod <-6
-      else 
-        begin
-          target.mods.defense_mod <- target.mods.defense_mod + 1;
-          Netgraphics.add_update (Item(string_of_item item,StatModified 
-            (Def,1),team,target.species));
-          Netgraphics.add_update (
-            UpdateSteammon(target.species,target.curr_hp,target.max_hp,team))
-        end
+        if target.mods.defense_mod + 1 >= 6 then target.mods.defense_mod <-6
+        else 
+          begin
+            target.mods.defense_mod <- target.mods.defense_mod + 1;
+            Netgraphics.add_update (Item(string_of_item item,StatModified 
+              (Def,1),team,target.species));
+            Netgraphics.add_update (
+              UpdateSteammon(target.species,target.curr_hp,target.max_hp,team))
+          end
     | XSpeed ->
-        
-          if target.mods.speed_mod + 1 >= 6 then target.mods.speed_mod <-6
-          else 
-            begin
-              target.mods.speed_mod <- target.mods.speed_mod + 1;
-              Netgraphics.add_update (Item(string_of_item item,StatModified
-                (SpD,1),team,target.species));
-              Netgraphics.add_update (
-                UpdateSteammon(target.species,target.curr_hp,target.max_hp,team))
-            end
-
-
+        if target.mods.speed_mod + 1 >= 6 then target.mods.speed_mod <-6
+        else 
+          begin
+            target.mods.speed_mod <- target.mods.speed_mod + 1;
+            Netgraphics.add_update (Item(string_of_item item,StatModified
+              (SpD,1),team,target.species));
+            Netgraphics.add_update (
+              UpdateSteammon(target.species,target.curr_hp,target.max_hp,team))
+          end
         in
   if own_item then
     begin 
@@ -436,14 +424,19 @@ let use_item (g:game) (c:color) (item:item) (s:string) : unit =
           with Not_found -> Netgraphics.add_update (Message("Steammon not found!"))
         end
     end
-      
   else
     Netgraphics.add_update (Message("None in inventory!"))
 
+<<<<<<< HEAD
 let use_move (g:game) (c:color) (move_name: string) : unit = 
   let player = find_player c g in 
   let opponent = find_player (invert_color c) g in 
 
+=======
+let handle_ActionRequest (g:game) (c:color) (move_name:string) : unit =
+  ()
+  (* let player = find_player c g in 
+>>>>>>> c114be697f16a5d103a763b1179b834d927c9c7a
   let starter = List.hd player.mon_list in 
   let enemy = List.hd opponent.mon_list in 
 
@@ -452,6 +445,7 @@ let use_move (g:game) (c:color) (move_name: string) : unit =
     match get_move_from_steammon starter move_name with
 
     | None -> failwith "Not a valid move for this steammon" 
+<<<<<<< HEAD
     | Some x -> x in 
 
 (*   (*Check if there's any pp left. If not, use Struggle*)
@@ -558,10 +552,15 @@ let use_move (g:game) (c:color) (move_name: string) : unit =
           effect_result_of_effect effect,color) effect_list
       else [] in  
 
+=======
+    | Some x -> x in  *)
+  (*
+>>>>>>> c114be697f16a5d103a763b1179b834d927c9c7a
   (*information for gui*)
   let move_result = {
     name = move.name;
     element = move.element;
+<<<<<<< HEAD
     from = c; 
     toward = invert_color c; 
     damage = move_damage ;
@@ -574,6 +573,16 @@ let use_move (g:game) (c:color) (move_name: string) : unit =
   add_update(Move(move_result))
 
 
+=======
+    from = c; (* performer of move *)
+    toward = invert_color c; (* recipient of move *)
+    damage: int;
+    hit: hit_result;
+    effectiveness: effectiveness;
+    effects: (effect_result * color) list
+  }
+  *)
+>>>>>>> c114be697f16a5d103a763b1179b834d927c9c7a
 
 let handle_ActionRequest (g:game) (c:color) (move_name:string) : unit =
   ()
