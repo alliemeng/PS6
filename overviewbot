@@ -1,0 +1,50 @@
+overview
+
+receieve requests from server -> send actions to server -> loop
+
+server and players interact by sending messages over channels:
+protocol is described by type:command in definitions.ml:
+- control messages: deal with starting/ending game
+- error messages: sent by server when something goes wrong
+- action messages: sent to the server by player to indicate intent
+- request messages: sent to player by the server to query info
+- DoNothing message
+
+team.ml: code for the bot to connect to the server
+intialization.ml: code for parsing moves and steammon, creates hash tables
+
+connect -> initialization -> draft -> inventory -> battle
+
+bot behavior
+------------
+draft stage: 
+	keep track:
+		- steammon credits (to avoid getting a trash steammon that costs 0)
+		- whether or not they actually have normal moves or special moves that deal damage
+	behavior:
+		- if first pick: set cost ceiling at 3/8 of total available credits
+			+ max defence steammon available (so opponent cannot select counter steamtype)
+			+ then same pattern: 3/8, 1/8, 1/8 (alternate def, atk picks)
+			+ divide remainder in half and apportion to last 2 picks
+		- if second pick: set cost ceiling at 3/8 of total available credits for each pick
+			+ max sp attack steammon available that has abilities that are super effective against opponent pick
+			+ max sp defence steammon available that is resistant to opponent's moves
+starter pick: 
+	intial: best defender (so as to provide room to react to opponent starter)
+	subsequent deaths:
+		- select steammon with a super-effective move to opponent
+		- if none exist, select steammon with strongest attack
+		- elseif opponent is rock or steel, select any steammon with non-notveryeffective move
+inventory stage:
+		- total credits/cost of max potion
+			+ buy 5/8 total credits worth of potions
+		- remaining credits/cost of revive
+			+ buy 3/4 of this in revives
+		- remaining into full heal
+battle stage:
+	if hp < 40%, use potion
+	elseif steammon is burned, frozen, poisoned, use full heal
+	elseif party member is dead, use revive
+	elseif PP > 0, select super-effective move
+	elseif swap steammon to one with above criteria
+	else PP > 0, select non-notveryeffective move
