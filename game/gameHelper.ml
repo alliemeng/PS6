@@ -546,7 +546,7 @@ let use_item (g:game) (c:color) (item:item) (s:string) : unit =
               spl_defense = target.spl_defense;
               speed = target.speed;
               status = target.status;
-              mods = target.mods;
+              mods = new_mods;
               cost = target.cost
             } in
             Netgraphics.add_update (Item(string_of_item item,StatModified 
@@ -586,7 +586,7 @@ let use_item (g:game) (c:color) (item:item) (s:string) : unit =
               spl_defense = target.spl_defense;
               speed = target.speed;
               status = target.status;
-              mods = target.mods;
+              mods = new_mods;
               cost = target.cost
             } in
             Netgraphics.add_update (Item(string_of_item item,StatModified
