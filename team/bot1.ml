@@ -135,9 +135,16 @@ let handle_request (c : color) (r : request) : action =
               | Some t -> t
               | None -> Typeless)) = SuperEffective) mons)
             (* Select steammon with strongest attack *)
-            with _ -> List.fold_right (fun a acc -> 
-              if (acc.attack >= a.attack) then acc
-              else a) (fst (!roleslists)) (List.hd (fst (!roleslists))) in
+            with _ ->
+              try (List.find (fun x ->
+              (weakness (match x.first_type with 
+              | Some t -> t
+              | None -> Typeless) (match ((List.hd (opmons)).second_type) with
+              | Some t -> t
+              | None -> Typeless)) = SuperEffective) mons)
+              with _ -> List.fold_right (fun a acc -> 
+                if (acc.attack >= a.attack) then acc
+                else a) (fst (!roleslists)) (List.hd (fst (!roleslists))) in
           SelectStarter(pick.species)
      
     (* Sent during the battle phase to request that the player
