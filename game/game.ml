@@ -4,6 +4,7 @@ open Constants
 open Netgraphics
 open GameHelper
 
+type game = State.t 
 (*Converts [g] to game_status_data*)
 let game_datafication (g:game) : game_status_data =
   let red : team_data = (g.red.mon_list, g.red.inventory, g.red.credits) in
@@ -64,43 +65,89 @@ let handle_step (g:game) (ra:command) (ba:command) : game_output =
         let find_first () : unit =
           let red_speed = (List.hd g.red.mon_list).speed in
           let blue_speed = (List.hd g.blue.mon_list).speed in
-          if red_speed > blue_speed then Red
-          else if blue_speed > red_speed then Blue
-          else
-            if Random.bool then
-              !first := Red;
-              Netgraphics.add_update (SetFirstAttacker(Red));
-              ()
-            else
-              !first := Blue;
-              Netgraphics.add_update (SetFirstAttacker(Blue));
-              () in
+          if red_speed > blue_speed then 
+            begin
+              first := Red;
+              Netgraphics.add_update (SetFirstAttacker(Red))
+            end 
+          else if blue_speed > red_speed then 
+            begin
+              first := Blue;
+              Netgraphics.add_update (SetFirstAttacker(Blue))
+            end   
+          (*Pick random team to start*)       
+          else 
+            begin
+              if Random.bool () then
+                begin 
+                  first := Red;
+                  Netgraphics.add_update (SetFirstAttacker(Red))
+                end
+              else
+                begin 
+                  first := Blue;
+                  Netgraphics.add_update (SetFirstAttacker(Blue))  
+                end 
+            end
+                
+             in 
+
+        let active_fainted (c:color) : bool = 
+          let active_mon = List.hd (find_player c g).mon_list in 
+          active_mon.curr_hp = 0 in 
+
+   (*      let remove_status_effects (c:color) : unit = 
+          let lst = (find_player c g).mon_list in 
+          match  lst with
+          | h::t -> lst <- {h with status = None} :: t
+          | [] -> failwith "No steammon in team!!" in  *)
+
+
         let act (c:color) (action:command) : command option =
           match action with
           | Action (SwitchSteammon s) ->
               switch_steammon g c s;
               let game_data = game_datafication g in
               Some(Request(ActionRequest(game_data)))
+
           | Action (UseItem (item,target)) ->
               use_item g c item target;
               let game_data = game_datafication g in
               if active_fainted c then
-                last_request_sent := StarterRequest;
-                Some(Request(StarterRequest(game_data)))
+                begin 
+                  (* remove_status_effects c; *)
+                  last_request_sent := StarterRequest;
+                  Some(Request(StarterRequest(game_data)))
+                end
               else
                 Some(Request(ActionRequest(game_data)))
+
           | Action (UseMove m) ->
               handle_ActionRequest g c m;
               let game_data = game_datafication g in
               if active_fainted c then
-                last_request_sent := StarterRequest;
-                Some(Request(StarterRequest(game_data)))
+                begin 
+                  (* remove_status_effects c; *)
+                  last_request_sent := StarterRequest;
+                  Some(Request(StarterRequest(game_data)))
+                end
               else
                 Some(Request(ActionRequest(game_data)))
+
           | DoNothing ->
             let game_data = game_datafication g in 
-            Some(Request(ActionRequest(game_data)))
-          | _,_ -> failwith "Invalid response from bot(s)")
+            Some(Request(ActionRequest(game_data))) 
+            
+            
+          | _ -> failwith "Invalid bot response" in 
+
+        find_first (); 
+        (*Placeholder, fix later*)
+        (None, game_datafication g, act Red ra, act Blue ra))
+
+
+
+
 
 let init_game () : game * request * request * move list * steammon list =
   let s = State.create () in 
@@ -109,6 +156,6 @@ let init_game () : game * request * request * move list * steammon list =
     
     move_table := Initialization.move_table;
     mon_table := Initialization.mon_table;
-    if Random.bool then first := Red else first := Blue;
+    if Random.bool () then first := Red else first := Blue;
     last_request_sent := TeamNameRequest;
     (s, TeamNameRequest,TeamNameRequest,hash_to_list (!move_table), hash_to_list (!mon_table))
