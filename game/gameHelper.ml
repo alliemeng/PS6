@@ -433,13 +433,14 @@ let use_item (g:game) (c:color) (item:item) (s:string) : unit =
     Netgraphics.add_update (Message("None in inventory!"))
 
 let handle_ActionRequest (g:game) (c:color) (move_name:string) : unit =
-  let player = find_player c g in 
+  ()
+  (* let player = find_player c g in 
   let starter = List.hd player.mon_list in 
 
   let move = 
     match get_move_from_steammon starter move_name with
     | None -> failwith "Not a valid move for this steammon" 
-    | Some x -> x in 
+    | Some x -> x in  *)
   (*
   (*information for gui*)
   let move_result = {
