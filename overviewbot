@@ -19,7 +19,7 @@ bot behavior
 ------------
 draft stage: 
 	keep track:
-		- steammon credits (to avoid getting a trash steammon that costs 0)
+		- steammon credits (to avoid getting a trash steammon that costs 0) //given by the gsd
 		- whether or not they actually have normal moves or special moves that deal damage
 	behavior:
 		- if first pick: set cost ceiling at 3/8 of total available credits
