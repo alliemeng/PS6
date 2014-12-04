@@ -321,48 +321,72 @@ let use_item (g:game) (c:color) (item:item) (s:string) : unit =
         target.second_move.pp_remaining <- use_ether target.second_move;
         target.third_move.pp_remaining <- use_ether target.third_move;
         target.fourth_move.pp_remaining <- use_ether target.fourth_move;
-        Netgraphics.add_update (Item(item,RestoredPP,team,target.species));
+        Netgraphics.add_update (Item(item,RestorePP 5,team,target.species));
         Netgraphics.add_update (
           UpdateSteammon(target.species,target.curr_hp,target.max_hp,team));
         ()
     | MaxPotion ->
         if target.curr_hp > 0 then
           target.curr_hp <- max_hp;
-          Netgraphics.add_update (Item(item,Recovered,team,target.species));
+          Netgraphics.add_update (Item(item,RecoverPercent 100,team,target.species));
           Netgraphics.add_update (
             UpdateSteammon(target.species,target.max_hp,target.max_hp,team));
         else
-          Netgraphics.add_update (Message (s ^ "is fainted and can't be healed!")); ()
+          Netgraphics.add_update (Message (s ^ "is fainted and can't be healed!"));
+          ()
     | Revive ->
         if target.curr_hp = 0 then
           target.curr_hp <- target.max_hp / 2;
-          Netgraphics.add_update (Item(item,Recovered,team,target.species));
+          Netgraphics.add_update (Item(item,RecoverPercent 50,team,target.species));
           Netgraphics.add_update (
             UpdateSteammon(target.species,target.curr_hp,target.max_hp,team));
           ()
         else
-          Netgraphics.add_update (Message (s ^ "is not fainted and can't be revived!")); ()
+          Netgraphics.add_update (Message (s ^ "is not fainted and can't be revived!"));
+          ()
     | FullHeal ->
+        target.status <- None;
+        Netgraphics.add_update (Item(item,HealStatus [],team,target.species));
+        Netgraphics.add_update (
+          UpdateSteammon(target.species,target.curr_hp,target.max_hp,team));
+        ()
     | XAttack ->
+        target.mods.attack_mod <-
+          if target.mods.attack_mod + 1 >= 6 then 6
+          else target.mods.attack_mod + 1;
+        Netgraphics.add_update (Item(item,StatModifier (Atk,1),team,target.species));
+        Netgraphics.add_update (
+          UpdateSteammon(target.species,target.curr_hp,target.max_hp,team));
+        ()
     | XDefense ->
+        target.mods.defense_mod <-
+          if target.mods.defense_mod + 1 >= 6 then 6
+          else target.mods.defense_mod + 1;
+        Netgraphics.add_update (Item(item,StatModifier (Def,1),team,target.species));
+        Netgraphics.add_update (
+          UpdateSteammon(target.species,target.curr_hp,target.max_hp,team));
+        ()
     | XSpeed ->
+        target.mods.speed_mod <-
+          if target.mods.speed_mod + 1 >= 6 then 6
+          else target.mods.speed_mod + 1;
+        Netgraphics.add_update (Item(item,StatModifier (SpD,1),team,target.species));
+        Netgraphics.add_update (
+          UpdateSteammon(target.species,target.curr_hp,target.max_hp,team));
+        () in
   if own_item then
     player.inventory := new_inventory;
-    if (List.exists (fun x -> x.species = s) g.red.mon_list) then
-      try
-        use_on (g.red) (List.find (fun x -> x.species = s) g.red.mon_list)
-      with Not_found -> Netgraphics.add_update (Message("It's ineffective!")); ()
-    else if (List.exists (fun x -> x.species = s) g.blue.mon_list) then
-      try
+    try
+      use_on (g.red) (List.find (fun x -> x.species = s) g.red.mon_list)
+    with Not_found ->
+      (try
         use_on (g.blue) (List.find (fun x -> x.species = s) g.blue.mon_list)
-      with Not_found -> Netgraphics.add_update (Message("It's ineffective!")); ()
-    else Netgraphics.add_update (Message(s ^ "isn't !")); ()
+      with Not_found -> Netgraphics.add_update (Message("Steammon not found!")); ())
   else
     Netgraphics.add_update (Message("None in inventory!")); ()
 
-
 let handle_ActionRequest (g:game) (c:color) (move:string) : unit =
-
+  failwith "Not yet!"
 
 (* let reset_mods (lst: steammon list) : steammon list = 
   match lst with
