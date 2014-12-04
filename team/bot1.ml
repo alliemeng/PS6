@@ -1,6 +1,7 @@
 open Team
 open Definitions
 open Constants
+open Util
 
 (*Bot 1 Strategy:
   Pickteam: Choose steammon with highest hp that has a type not yet 
@@ -12,6 +13,8 @@ open Constants
 
 let name = "BOT" 
 let _ = Random.self_init ()
+
+let roleslists = ref ([],[]) 
 
 let pickInventoryHelper () : int list = 
   let inventarray = Array.make 7 0 in
@@ -26,9 +29,15 @@ let pickInventoryHelper () : int list =
   Array.set inventarray 2 nfullheal;
   Array.to_list inventarray
 
-(* handle_request c r responds to a request r by returning an action. The color c 
+  (* let findinsp (field: string)  *)
+  let findcosteff (steampool: steam_pool) (maxcost:int) : steam_pool =
+  List.filter (fun elm -> elm.cost < maxcost) steampool
+
+(* let pickfirst (steampool: steam_pool) : action =
+handle_request c r responds to a request r by returning an action. The color c 
  * allows the bot to know what color it is. *)
 let handle_request (c : color) (r : request) : action =
+
   match r with
     | TeamNameRequest -> SendTeamName(name)
 
@@ -40,10 +49,70 @@ let handle_request (c : color) (r : request) : action =
    (* Sent during the draft phase to request that the player 
        draft a Steammon. *)
     | PickRequest(col, gsd, moves, sp) ->
+        
         let (a1,b1) = gsd in
         let my_team = if c = Red then a1 else b1 in
-        let (mons, pack, credits) = my_team in
-        pickanalysis sp mons
+        let (mons,items,credits) = my_team in 
+        let lengthmons = List.length mons in
+        (*pick best defender*)
+        if lengthmons = 0 then 
+         let avail = findcosteff sp (int_of_float ((float_of_int cSTEAMMON_CREDITS)*. (3.0/.8.0))) in
+         let picked = (List.fold_left (fun acc elm ->
+          if elm.defense > acc.defense then elm else acc) (List.hd avail) avail) in 
+          let (attackers,defenders) = !roleslists in 
+          roleslists := (attackers, picked::defenders);
+          PickSteammon(picked.species) 
+
+          (*pick best special attacker*)
+         else if lengthmons = 1 then
+          let avail = findcosteff sp (int_of_float ((float_of_int cSTEAMMON_CREDITS)*. (3.0/.8.0))) in
+          let picked = List.fold_left (fun acc elm ->
+          if elm.spl_attack > acc.spl_attack then elm else acc) (List.hd avail) avail in
+          let (attackers,defenders) = !roleslists in 
+          roleslists := (picked::attackers, defenders);
+          PickSteammon(picked.species) 
+
+          (*pick best special defender*)
+        else if lengthmons = 2 then
+          let avail = findcosteff sp (int_of_float ((float_of_int cSTEAMMON_CREDITS)*. (1.0/.8.0))) in
+          let picked = List.fold_left (fun acc elm ->
+          if elm.spl_defense> acc.spl_defense then elm else acc) (List.hd avail) avail in
+          let (attackers,defenders) = !roleslists in 
+          roleslists := (attackers, picked::defenders);
+          PickSteammon(picked.species)
+
+          (*pick best attacker*)
+        else if lengthmons = 3 then
+          let avail = findcosteff sp (int_of_float ((float_of_int cSTEAMMON_CREDITS)*. (1.0/.8.0))) in
+          let picked = List.fold_left (fun acc elm ->
+          if elm.attack > acc.attack then elm else acc) (List.hd avail) avail in
+          let (attackers,defenders) = !roleslists in 
+          roleslists := (picked::attackers, defenders);
+          PickSteammon(picked.species) 
+
+          (*pick best defender*)
+        else if lengthmons = 4 then
+          let avail = findcosteff sp (int_of_float ((float_of_int credits)/.2.0)) in
+          let picked = List.fold_left (fun acc elm ->
+          if elm.defense > acc.defense then elm else acc) (List.hd avail) avail in 
+          let (attackers,defenders) = !roleslists in 
+          roleslists := (attackers, picked::defenders);
+          PickSteammon(picked.species)
+
+          (*pick best special attacker*)
+        (*if lengthmons = 5*)
+        else 
+          let avail = findcosteff sp credits in
+          let picked = List.fold_left (fun acc elm ->
+          if elm.spl_attack> acc.spl_attack then elm else acc) (List.hd avail) avail in 
+          let (attackers,defenders) = !roleslists in 
+          roleslists := (picked::attackers, defenders);
+          PickSteammon(picked.species) 
+
+        (* let opp_team = if my_team = a1 then b1 else a1 in
+        let (omons,oinv,ocredits) = opp_team in 
+        if omons = [] then pickfirst sp *)
+      
 
     (* Sent at the beginning of the battle phase, or when the active 
      * Steammon faints. *)
