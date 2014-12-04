@@ -365,6 +365,10 @@ let handle_step (g:game) (ra:command) (ba:command) : game_output =
       | DoNothing, DoNothing -> handle_SelectStarter g "" ""
       | _,_ -> failwith "Doesn't happen")
     | ActionRequest -> (match ra, ba with
+      | DoNothing, DoNothing -> 
+        let game_data = game_datafication g in 
+          (None, game_data, Some(Request(ActionRequest game_data)),
+            Some(Request(ActionRequest game_data)))
       | _,_ -> failwith "Doesn't happen")
 
 
