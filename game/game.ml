@@ -67,17 +67,39 @@ let handle_step (g:game) (ra:command) (ba:command) : game_output =
           if red_speed > blue_speed then Red
           else if blue_speed > red_speed then Blue
           else
-            if Random.bool then !first := Red; ()
-            else !first := Blue; () in
+            if Random.bool then
+              !first := Red;
+              Netgraphics.add_update (SetFirstAttacker(Red));
+              ()
+            else
+              !first := Blue;
+              Netgraphics.add_update (SetFirstAttacker(Blue));
+              () in
         let act (c:color) (action:command) : command option =
           match action with
-          | Action (SwitchSteammon s) -> switch_steammon g c s
-          | Action (UseItem (item,target)) -> use_item g c item target
-          | Action (UseMove m) -> handle_ActionRequest g c m
+          | Action (SwitchSteammon s) ->
+              switch_steammon g c s;
+              let game_data = game_datafication g in
+              Some(Request(ActionRequest(game_data)))
+          | Action (UseItem (item,target)) ->
+              use_item g c item target;
+              let game_data = game_datafication g in
+              if active_fainted c then
+                last_request_sent := StarterRequest;
+                Some(Request(StarterRequest(game_data)))
+              else
+                Some(Request(ActionRequest(game_data)))
+          | Action (UseMove m) ->
+              handle_ActionRequest g c m;
+              let game_data = game_datafication g in
+              if active_fainted c then
+                last_request_sent := StarterRequest;
+                Some(Request(StarterRequest(game_data)))
+              else
+                Some(Request(ActionRequest(game_data)))
           | DoNothing ->
             let game_data = game_datafication g in 
-            (None, game_data, Some(Request(ActionRequest game_data)),
-              Some(Request(ActionRequest game_data)))
+            Some(Request(ActionRequest(game_data)))
           | _,_ -> failwith "Invalid response from bot(s)")
 
 let init_game () : game * request * request * move list * steammon list =

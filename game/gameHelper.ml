@@ -280,7 +280,9 @@ let handle_SelectStarter (g:game) (r_starter:string)
   (None, game_data, Some(Request(ActionRequest game_data)),
     Some(Request(ActionRequest game_data)))
 
-let use_item (g:game) (c:color) (item:item) (target:string) : unit =
+let use_item (g:game) (c:color) (item:item) (s:string) : unit =
+  Netgraphics.add_update (Message((color_to_string c) ^ " team used " ^
+    string_of_item item ^ "on " ^ s ^ "!"));
   let player = find_player c in
   let (own_item, new_inventory) = match player.inventory with
     | [ether;max;revive;heal;attack;defense;speed] ->
@@ -309,9 +311,54 @@ let use_item (g:game) (c:color) (item:item) (target:string) : unit =
                 else (false, [])
         end
     | _ -> failwith "Invalid inventory" in
-  
-  Netgraphics.add_update (Message((color_to_string c) ^ " team used " ^
-    string_of_item item ^ "on " ^ target ^ "!"));
+  let use_on (team:color) (target:steammon) : unit =
+    match item with
+    | Ether ->
+        let use_ether (m:move) : int =
+          if move.pp_remaining + 5 >= move.max_pp then move.max_pp
+          else move.pp_remaining + 5 in
+        target.first_move.pp_remaining <- use_ether target.first_move;
+        target.second_move.pp_remaining <- use_ether target.second_move;
+        target.third_move.pp_remaining <- use_ether target.third_move;
+        target.fourth_move.pp_remaining <- use_ether target.fourth_move;
+        Netgraphics.add_update (Item(item,RestoredPP,team,target.species));
+        Netgraphics.add_update (
+          UpdateSteammon(target.species,target.curr_hp,target.max_hp,team));
+        ()
+    | MaxPotion ->
+        if target.curr_hp > 0 then
+          target.curr_hp <- max_hp;
+          Netgraphics.add_update (Item(item,Recovered,team,target.species));
+          Netgraphics.add_update (
+            UpdateSteammon(target.species,target.max_hp,target.max_hp,team));
+        else
+          Netgraphics.add_update (Message (s ^ "is fainted and can't be healed!")); ()
+    | Revive ->
+        if target.curr_hp = 0 then
+          target.curr_hp <- target.max_hp / 2;
+          Netgraphics.add_update (Item(item,Recovered,team,target.species));
+          Netgraphics.add_update (
+            UpdateSteammon(target.species,target.curr_hp,target.max_hp,team));
+          ()
+        else
+          Netgraphics.add_update (Message (s ^ "is not fainted and can't be revived!")); ()
+    | FullHeal ->
+    | XAttack ->
+    | XDefense ->
+    | XSpeed ->
+  if own_item then
+    player.inventory := new_inventory;
+    if (List.exists (fun x -> x.species = s) g.red.mon_list) then
+      try
+        use_on (g.red) (List.find (fun x -> x.species = s) g.red.mon_list)
+      with Not_found -> Netgraphics.add_update (Message("It's ineffective!")); ()
+    else if (List.exists (fun x -> x.species = s) g.blue.mon_list) then
+      try
+        use_on (g.blue) (List.find (fun x -> x.species = s) g.blue.mon_list)
+      with Not_found -> Netgraphics.add_update (Message("It's ineffective!")); ()
+    else Netgraphics.add_update (Message(s ^ "isn't !")); ()
+  else
+    Netgraphics.add_update (Message("None in inventory!")); ()
 
 
 let handle_ActionRequest (g:game) (c:color) (move:string) : unit =
