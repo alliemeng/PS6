@@ -223,7 +223,6 @@ let handle_request (c : color) (r : request) : action =
         | Some t -> t
         | None -> Frozen in
       let fainted = List.filter (fun elm -> elm.curr_hp = 0) mons in
-      let notfainted = List.filter (fun elm -> elm.curr_hp > 0) mons in
       (* HP < 40% *)
       if (float_of_int (inplay.curr_hp) < (0.3 *. float_of_int (inplay.max_hp))) &&
       ((List.nth pack 1) <> 0) then
@@ -269,6 +268,6 @@ let handle_request (c : color) (r : request) : action =
                     SwitchSteammon((checkteam (List.hd opmons) mons NotVeryEffective).species)
                   with _ ->
                     (* Check for any PP-available moves *)
-                    weredoomed notfainted))))
+                    weredoomed mons))))
 
 let () = run_bot handle_request
