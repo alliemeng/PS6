@@ -102,8 +102,8 @@ let draft_mon_helper (g:game) (mon:steammon) (c:color) : unit =
     begin
       incr total_draft_count;
       Table.remove !mon_table mon.species; 
-      player.State.mon_list <- mon :: player.State.mon_list;
-      player.State.credits <- player.State.credits - mon.cost;
+      player.mon_list <- mon :: player.mon_list;
+      player.credits <- player.credits - mon.cost;
       send_update (UpdateSteammon (mon.species,mon.curr_hp,mon.max_hp,c))
     end
   
@@ -158,7 +158,7 @@ let handle_PickSteammon (g:game) (c: color) (mon_name:string) =
       else
         begin
           let mon = Table.find !mon_table mon_name in 
-          if player.State.credits < mon.cost then 
+          if player.credits < mon.cost then 
             let cheap_mon = pick_cheap_mon g mon.cost in 
               begin
                 draft_mon_helper g cheap_mon c; 
@@ -179,40 +179,34 @@ let handle_PickSteammon (g:game) (c: color) (mon_name:string) =
 
 (* Returns the price of the items in [inventory]. *)
 let inventory_price (inventory: inventory) : int = 
-  let rec inv_price_helper (inv: inventory) (acc: int) = 
-    match inv with 
-    | [] -> acc
-    | h::t -> 
-      if List.length inv = 7 then inv_price_helper t (acc+h*cCOST_ETHER)
-      else if List.length inv = 6 then inv_price_helper t (acc+h*cCOST_MAXPOTION) 
-      else if List.length inv = 5 then inv_price_helper t (acc+h*cCOST_REVIVE)
-      else if List.length inv = 4 then inv_price_helper t (acc+h*cCOST_FULLHEAL)
-      else if List.length inv = 3 then inv_price_helper t (acc+h*cCOST_XATTACK)
-      else if List.length inv = 2 then inv_price_helper t (acc+h*cCOST_XDEFEND)
-      else inv_price_helper t (acc+h*cCOST_XSPEED) in 
-    inv_price_helper inventory 0
+  match inventory with
+  | [ether;max;revive;heal;attack;defense;speed] ->
+      ether*cCOST_ETHER + max*cCOST_MAXPOTION +
+      revive*cCOST_REVIVE + heal*cCOST_FULLHEAL +
+      attack*cCOST_XATTACK + defense*cCOST_XDEFEND + speed*cCOST_XSPEED
 
 (* Sets the [c] player's inventory to [inv] if the player has 
  * enough cash to buy the items in [inv]. Otherwise, set_inventory
  * gives the player a default inventory 
  * Side Effects: initilializes [c] player's inventory*) 
 let set_inventory (g:game) (c:color) (inv:inventory) : unit = 
-  let default = cNUM_ETHER::cNUM_MAX_POTION::
-          cNUM_REVIVE::cNUM_FULL_HEAL::cNUM_XATTACK::
-          cNUM_XDEFENSE::cNUM_XSPEED::[] in
+  let default = [cNUM_ETHER;cNUM_MAX_POTION;
+          cNUM_REVIVE;cNUM_FULL_HEAL;cNUM_XATTACK;
+          cNUM_XDEFENSE;cNUM_XSPEED] in
   let player = find_player c g in 
   match inv with
-  | [] -> player.State.inventory <- default
+  | [] -> player.inventory <- default
   | h::t ->
-      let price = inventory_price inv in 
-      (* print_endline("inventory price: " ^ string_of_int price); *)
+      let price = inventory_price inv in
+      Netgraphics.add_update (Message(
+        (string_of_color c) ^ " inventory price:" ^ string_of_int price));
       let inv' = if price > cINITIAL_CASH then default else inv in
       let string_inv = List.fold_right (fun x acc ->
         string_of_int x ^ " " ^ acc
       ) inv' "" in
       Netgraphics.add_update (Message(
         (string_of_color c) ^ " team inventory:" ^ string_inv));
-      player.State.inventory <- inv'
+      player.inventory <- inv'
 
 (* Initializes the red player's inventory with [r_inv] and the 
  * blue player's inventory with [b_inv]. If a player does not have 
@@ -252,7 +246,7 @@ let switch_steammon (g:game) (c:color) (mon_name:string) : unit =
         if (elem.species = mon_name && elem.curr_hp > 0)
         then Some elem,acc 
         else None,elem::acc) 
-        player.State.mon_list (None, []) in
+        player.mon_list (None, []) in
       
       match found with
       | None -> (Netgraphics.add_update (Message("You don't own that steammon!")));
@@ -276,7 +270,7 @@ let switch_steammon (g:game) (c:color) (mon_name:string) : unit =
           Netgraphics.add_update (SetChosenSteammon(new_guy.species));
           Netgraphics.add_update (Message((string_of_color c) ^
             " team brought out " ^ new_guy.species ^ "!"));
-          player.State.mon_list <- new_guy::lst
+          player.mon_list <- new_guy::lst
           
         end
     end
@@ -304,8 +298,8 @@ let use_item (g:game) (c:color) (item:item) (s:string) : unit =
   Netgraphics.add_update (Message((string_of_color c) ^ " team used " ^
     string_of_item item ^ "on " ^ s ^ "!"));
   let player = find_player c g in
-  let target = List.find (fun x -> x.species = s) player.State.mon_list in
-  let (own_item, new_inventory) = match player.State.inventory with
+  let target = List.find (fun x -> x.species = s) player.mon_list in
+  let (own_item, new_inventory) = match player.inventory with
     | [ether;max;revive;heal;attack;defense;speed] ->
         begin
           match item with
@@ -596,11 +590,11 @@ let use_item (g:game) (c:color) (item:item) (s:string) : unit =
             (target.species ^ " not found!"));
           x::acc
         end
-    ) [] player.State.mon_list in
+    ) [] player.mon_list in
   if own_item then
     begin 
-      player.State.inventory <- new_inventory;
-      player.State.mon_list <- use_on (List.find (fun x -> x.species = s) player.State.mon_list);
+      player.inventory <- new_inventory;
+      player.mon_list <- use_on (List.find (fun x -> x.species = s) player.mon_list);
     end
   else
     Netgraphics.add_update (Message("None in inventory!"))
@@ -609,7 +603,7 @@ let use_move (g:game) (c:color) (move_name: string) : unit =
   let player = find_player c g in 
   let opponent = find_player (invert_color c) g in 
 
-  let starter = List.hd player.State.mon_list in 
+  let starter = List.hd player.mon_list in 
   let enemy = List.hd opponent.State.mon_list in 
 
   let move = 
@@ -753,7 +747,7 @@ let handle_ActionRequest (g:game) (c:color) (move_name:string) : unit =
     {h with mods = default_modifier} :: t in 
     let player = find_player c g in
       begin
-        player.State.mon_list <- reset_mods player.State.mon_list;
-        player.State.mon_list <- set_active_steammon player.State.mon_list mon_name;
+        player.mon_list <- reset_mods player.mon_list;
+        player.mon_list <- set_active_steammon player.mon_list mon_name;
         send_update (SetChosenSteammon mon_name)
       end *)
