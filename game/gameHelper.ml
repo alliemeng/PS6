@@ -677,19 +677,50 @@ let use_move (g:game) (c:color) (move_name: string) : unit =
          (calc_multiplier steamtype_multiplier)
        | _ -> 0 in
   
-  let steammon_target, player_target  = 
+  let steammon_target, player_target, c_fainted  = 
     match move.target with 
-    | User -> starter, player 
-    | Opponent -> enemy, opponent in   
+    | User -> starter, player, c 
+    | Opponent -> enemy, opponent, invert_color c in   
 
   let effect_result_of_effect = function
-    | InflictStatus status -> InflictedStatus status  
-    | StatModifier (stat,i) -> StatModified (stat,i)
-    | RecoverPercent (i) -> Recovered (i * steammon_target.curr_hp / 100)
-    | Recoil i -> Recoiled (i * starter.curr_hp / 100)
-    | DamagePercent i ->  Damaged (steammon_target.max_hp * i / 100)
-    | HealStatus lst -> HealedStatus (List.hd lst)  
-    | RestorePP i -> RestoredPP i in 
+    | InflictStatus s -> 
+        player_target.mon_list <- 
+          {steammon_target with status = Some s}::
+          (List.tl player_target.mon_list);
+        InflictedStatus status  
+    | StatModifier (stat,i) -> 
+        player_target.mon_list <- 
+          {steammon_target with stat = steammon_target.stat + i}::
+          (List.tl player_target.mon_list);
+      StatModified (stat,i)
+    | RecoverPercent (i) -> 
+      let hp = i * steammon_target.curr_hp / 100 in 
+      player_target.mon_list <- 
+          {steammon_target with curr_hp = steammon_target.curr_hp + hp}::
+          (List.tl player_target.mon_list);
+      Recovered (hp)
+    | Recoil i -> 
+      let hp = i * starter.curr_hp / 100 in  
+      player_target.mon_list <- 
+          {steammon_target with curr_hp = steammon_target.curr_hp - hp}::
+          (List.tl player_target.mon_list);
+      Recoiled (hp)
+    | DamagePercent i ->  
+      let hp = steammon_target.max_hp * i / 100 in  
+      player_target.mon_list <- 
+          {steammon_target with curr_hp = steammon_target.curr_hp - hp}::
+          (List.tl player_target.mon_list);
+      Damaged (hp)
+    | HealStatus lst -> 
+      player_target.mon_list <- 
+          {steammon_target with status = None}::
+          (List.tl player_target.mon_list);
+      HealedStatus (List.hd lst)  
+    | RestorePP i -> 
+      player_target.mon_list <-
+          {steammon_target with status = None}::
+          (List.tl player_target.mon_list);
+      RestoredPP i in 
 
   let move_effects = 
     match move.effects with 
@@ -715,13 +746,19 @@ let use_move (g:game) (c:color) (move_name: string) : unit =
     effects = move_effects
   } in 
 
+  let target_hp_left = 
+    if steammon_target.curr_hp - move_damage < 0 then 0
+    else steammon_target.curr_hp - move_damage in
+
   let change_mon = function 
   | [] -> failwith "No steammon drafted!"
   | h::t -> 
-    {h with curr_hp = steammon_target.curr_hp - move_damage} :: t in   
+    {h with curr_hp = target_hp_left} :: t in   
 
 
   player_target.mon_list <- change_mon player_target.mon_list;
+  if target_hp_left = 0 then 
+    player_fainted := true; color_fainted := c_fainted else (); 
   add_update(Move(move_result));
 
   add_update(UpdateSteammon(starter.species,
