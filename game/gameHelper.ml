@@ -328,72 +328,269 @@ let use_item (g:game) (c:color) (item:item) (s:string) : unit =
                 else (false, [])
         end
     | _ -> failwith "Invalid inventory" in
-  let use_on (team:color) (target:steammon) : unit =
-    match item with
-    | Ether ->
-        let use_ether (m:move) : int =
-          if m.pp_remaining + 5 >= m.max_pp then m.max_pp
-          else m.pp_remaining + 5 in
-            begin 
-              target.first_move <- {target.first_move 
-                with pp_remaining = use_ether target.first_move};
-              target.second_move <- {target.second_move 
-                with pp_remaining = use_ether target.second_move};
-              target.third_move <- {target.third_move 
-                with pp_remaining = use_ether target.third_move};
-              target.fourth_move <- {target.fourth_move 
-                with pp_remaining = use_ether target.fourth_move};                
-              Netgraphics.add_update (Item(string_of_item item,RestoredPP 5,team,
-                target.species));
+  let use_on (target:steammon) : steammon list =
+    List.fold_left (fun acc x ->
+      if x.species = target.species then
+        match item with
+        | Ether ->
+            (let inc_pp (m:move) = {
+              name = m.name;
+              element = m.element;
+              target = m.target;
+              max_pp = m.max_pp;
+              pp_remaining =
+                if m.pp_remaining + 5 >= m.max_pp then m.max_pp
+                else m.pp_remaining + 5;
+              power = m.power;
+              accuracy = m.accuracy;
+              effects = m.effects
+            } in
+            let new_guy = {
+              species = target.species;
+              curr_hp = target.curr_hp;
+              max_hp = target.max_hp;
+              first_type = target.first_type;
+              second_type = target.second_type;
+              first_move = inc_pp target.first_move;
+              second_move = inc_pp target.second_move;
+              third_move = inc_pp target.third_move;
+              fourth_move = inc_pp target.fourth_move;
+              attack = target.attack;
+              spl_attack  = target.spl_attack;
+              defense = target.defense;
+              spl_defense = target.spl_defense;
+              speed = target.speed;
+              status = target.status;
+              mods = target.mods;
+              cost = target.cost
+            } in
+            if target.curr_hp > 0 then
+                (Netgraphics.add_update (Item(string_of_item item,RestoredPP 5,c,
+                  target.species));
+                Netgraphics.add_update (
+                  UpdateSteammon(target.species,target.curr_hp,target.max_hp,c));
+                new_guy::acc)
+            else
+              (Netgraphics.add_update (Message (target.species ^ " is fainted and can't use ether!"));
+              x::acc))
+        | MaxPotion ->
+            (let new_guy = {
+              species = target.species;
+              curr_hp = target.max_hp;
+              max_hp = target.max_hp;
+              first_type = target.first_type;
+              second_type = target.second_type;
+              first_move = target.first_move;
+              second_move = target.second_move;
+              third_move = target.third_move;
+              fourth_move = target.fourth_move;
+              attack = target.attack;
+              spl_attack  = target.spl_attack;
+              defense = target.defense;
+              spl_defense = target.spl_defense;
+              speed = target.speed;
+              status = target.status;
+              mods = target.mods;
+              cost = target.cost
+            } in
+            if target.curr_hp > 0 then 
+              (Netgraphics.add_update (Item(string_of_item item,Recovered 100,
+                c,target.species));
               Netgraphics.add_update (
-                UpdateSteammon(target.species,target.curr_hp,target.max_hp,team))
-            end
-        
-    | MaxPotion ->
-        if target.curr_hp > 0 then
-          begin 
-            target.curr_hp <- target.max_hp;
-            Netgraphics.add_update (Item(string_of_item item,Recovered
-              100,team,target.species));
-            Netgraphics.add_update (
-              UpdateSteammon(target.species,target.max_hp,target.max_hp,team));
-          end
-        else
-          Netgraphics.add_update (Message (s ^ "is fainted and can't be healed!"))
-    | Revive ->
-        if target.curr_hp = 0 then
-          begin
-            target.curr_hp <- target.max_hp / 2;
-            Netgraphics.add_update (Item(string_of_item item,
-              Recovered 50,team,target.species));
-            Netgraphics.add_update (
-              UpdateSteammon(target.species,target.curr_hp,target.max_hp,team)) 
-          end
-          
-        else
-          Netgraphics.add_update (Message (s ^ "is not fainted and can't be revived!"))
-    | FullHeal ->
-        (match target.status with 
-        | None -> 
-          Netgraphics.add_update (Message ("No status effects to heal!"))
-        | Some status -> 
-          begin
-            target.status <- None;
-            Netgraphics.add_update (Item(string_of_item item,HealedStatus 
-              status,team,target.species));
-            Netgraphics.add_update (
-              UpdateSteammon(target.species,target.curr_hp,target.max_hp,team))
-          end)
-        
-    | XAttack ->
-      if target.mods.attack_mod + 1 >= 6 then target.mods.attack_mod <- 6
-      else 
+                UpdateSteammon(target.species,target.max_hp,target.max_hp,c));
+              new_guy::acc)
+            else
+              (Netgraphics.add_update (Message
+                (target.species ^ " is fainted and can't be healed!"));
+              x::acc))
+        | Revive ->
+            (let new_guy = {
+              species = target.species;
+              curr_hp = target.max_hp/2;
+              max_hp = target.max_hp;
+              first_type = target.first_type;
+              second_type = target.second_type;
+              first_move = target.first_move;
+              second_move = target.second_move;
+              third_move = target.third_move;
+              fourth_move = target.fourth_move;
+              attack = target.attack;
+              spl_attack  = target.spl_attack;
+              defense = target.defense;
+              spl_defense = target.spl_defense;
+              speed = target.speed;
+              status = target.status;
+              mods = target.mods;
+              cost = target.cost
+            } in
+            if target.curr_hp <= 0 then
+              (Netgraphics.add_update (Item(string_of_item item,
+                Recovered 50,c,target.species));
+              Netgraphics.add_update (
+                UpdateSteammon(target.species,target.curr_hp,target.max_hp,c));
+              new_guy::acc)
+            else
+              (Netgraphics.add_update (Message
+                (target.species ^ " is not fainted and can't be revived!"));
+              x::acc))
+        | FullHeal ->
+            (let new_guy = {
+              species = target.species;
+              curr_hp = target.curr_hp;
+              max_hp = target.max_hp;
+              first_type = target.first_type;
+              second_type = target.second_type;
+              first_move = target.first_move;
+              second_move = target.second_move;
+              third_move = target.third_move;
+              fourth_move = target.fourth_move;
+              attack = target.attack;
+              spl_attack  = target.spl_attack;
+              defense = target.defense;
+              spl_defense = target.spl_defense;
+              speed = target.speed;
+              status = None;
+              mods = target.mods;
+              cost = target.cost
+            } in
+            if target.curr_hp > 0 then
+              match target.status with
+              | Some e ->
+                  (Netgraphics.add_update (Item(string_of_item item,HealedStatus e,
+                    c,target.species));
+                  Netgraphics.add_update (
+                    UpdateSteammon(target.species,target.curr_hp,target.max_hp,c));
+                  new_guy::acc)
+              | None ->
+                  (Netgraphics.add_update (Message
+                    (target.species ^ " has no status effects!"));
+                  x::acc)
+            else
+              (Netgraphics.add_update (Message
+                (target.species ^ " is fainted and can't be healed!"));
+              x::acc))
+        | XAttack ->
+            (let new_mods = {
+              attack_mod =
+                if target.mods.attack_mod + 1 >= 6 then 6
+                else target.mods.attack_mod + 1;
+              defense_mod = target.mods.defense_mod;
+              spl_attack_mod = target.mods.spl_attack_mod;
+              spl_defense_mod = target.mods.spl_defense_mod;
+              speed_mod = target.mods.speed_mod;
+            } in
+            let new_guy = {
+              species = target.species;
+              curr_hp = target.curr_hp;
+              max_hp = target.max_hp;
+              first_type = target.first_type;
+              second_type = target.second_type;
+              first_move = target.first_move;
+              second_move = target.second_move;
+              third_move = target.third_move;
+              fourth_move = target.fourth_move;
+              attack = target.attack;
+              spl_attack  = target.spl_attack;
+              defense = target.defense;
+              spl_defense = target.spl_defense;
+              speed = target.speed;
+              status = target.status;
+              mods = new_mods;
+              cost = target.cost
+            } in
+            if target.curr_hp > 0 then
+              (Netgraphics.add_update (Item(string_of_item item,StatModified 
+                (Atk,1),c,target.species));
+              Netgraphics.add_update (
+                UpdateSteammon(target.species,target.curr_hp,target.max_hp,c));
+              new_guy::acc)
+            else
+              (Netgraphics.add_update (Message
+                (target.species ^ " is fainted and can't use XAttack!"));
+              x::acc))
+        | XDefense ->
+            (let new_mods = {
+              attack_mod = target.mods.attack_mod;
+              defense_mod =
+                if target.mods.defense_mod + 1 >= 6 then 6
+                else target.mods.defense_mod + 1;
+              spl_attack_mod = target.mods.spl_attack_mod;
+              spl_defense_mod = target.mods.spl_defense_mod;
+              speed_mod = target.mods.speed_mod;
+            } in
+            let new_guy = {
+              species = target.species;
+              curr_hp = target.curr_hp;
+              max_hp = target.max_hp;
+              first_type = target.first_type;
+              second_type = target.second_type;
+              first_move = target.first_move;
+              second_move = target.second_move;
+              third_move = target.third_move;
+              fourth_move = target.fourth_move;
+              attack = target.attack;
+              spl_attack  = target.spl_attack;
+              defense = target.defense;
+              spl_defense = target.spl_defense;
+              speed = target.speed;
+              status = target.status;
+              mods = new_mods;
+              cost = target.cost
+            } in
+            if target.curr_hp > 0 then
+              (Netgraphics.add_update (Item(string_of_item item,StatModified 
+                (Def,1),c,target.species));
+              Netgraphics.add_update (
+                UpdateSteammon(target.species,target.curr_hp,target.max_hp,c));
+              new_guy::acc)
+            else
+              (Netgraphics.add_update (Message
+                (target.species ^ " is fainted and can't use XDefense!"));
+              x::acc))
+        | XSpeed ->
+            (let new_mods = {
+              attack_mod = target.mods.attack_mod;
+              defense_mod = target.mods.defense_mod;
+              spl_attack_mod = target.mods.spl_attack_mod;
+              spl_defense_mod = target.mods.spl_defense_mod;
+              speed_mod =
+                if target.mods.speed_mod + 1 >= 6 then 6
+                else target.mods.speed_mod + 1;
+            } in
+            let new_guy = {
+              species = target.species;
+              curr_hp = target.curr_hp;
+              max_hp = target.max_hp;
+              first_type = target.first_type;
+              second_type = target.second_type;
+              first_move = target.first_move;
+              second_move = target.second_move;
+              third_move = target.third_move;
+              fourth_move = target.fourth_move;
+              attack = target.attack;
+              spl_attack  = target.spl_attack;
+              defense = target.defense;
+              spl_defense = target.spl_defense;
+              speed = target.speed;
+              status = target.status;
+              mods = new_mods;
+              cost = target.cost
+            } in
+            if target.curr_hp > 0 then
+              (Netgraphics.add_update (Item(string_of_item item,StatModified
+                (SpD,1),c,target.species));
+              Netgraphics.add_update (
+                UpdateSteammon(target.species,target.curr_hp,target.max_hp,c));
+              new_guy::acc)
+            else
+              (Netgraphics.add_update (Message
+                (target.species ^ " is fainted and can't use XSpeed!"));
+              x::acc))
+      else
         begin
-          target.mods.attack_mod <- target.mods.attack_mod + 1;
-          Netgraphics.add_update (Item(string_of_item item,StatModified 
-            (Atk,1),team,target.species));
-          Netgraphics.add_update (
-            UpdateSteammon(target.species,target.curr_hp,target.max_hp,team))
+          Netgraphics.add_update (Message
+            (target.species ^ " not found!"));
+          x::acc
         end
     ) [] player.mon_list in
   if own_item then
@@ -401,7 +598,6 @@ let use_item (g:game) (c:color) (item:item) (s:string) : unit =
       player.inventory <- new_inventory;
       player.mon_list <- use_on (List.find (fun x -> x.species = s) player.mon_list);
     end
-      
   else
     Netgraphics.add_update (Message("None in inventory!"))
 
