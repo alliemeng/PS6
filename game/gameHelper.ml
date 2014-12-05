@@ -247,11 +247,11 @@ let switch_steammon (g:game) (c:color) (mon_name:string) : unit =
       let (found,lst) = List.fold_right (fun elem (mon,acc) -> 
         if (elem.species = mon_name && elem.curr_hp > 0)
         then Some elem,acc 
-        else None,elem::acc) 
+        else mon,elem::acc) 
         player.mon_list (None, []) in
       
       match found with
-      | None -> (Netgraphics.add_update (Message("You don't own that steammon!")));
+      | None -> failwith "Steammon not in team list"
       | Some new_guy ->
         begin
           (*default mods*)
@@ -621,6 +621,7 @@ let use_move (g:game) (c:color) (move_name: string) : unit =
     else 
       Random.int 100 < move.accuracy in 
 
+<<<<<<< HEAD
 
   match player.status with
   | Some Poisoned ->
@@ -675,19 +676,36 @@ let use_move (g:game) (c:color) (move_name: string) : unit =
       player.mon_list <- new_starter; ()
   | _ -> ()
 
+=======
+  let decrease_pp () = 
+    if (move.pp_remaining - 1) <= 0 then () else 
+    begin
+    let changed_move = {move with pp_remaining = (move.pp_remaining - 1)} in
+      if starter.first_move.name = move_name 
+        then player.mon_list <- {starter with starter.first_move = changed_move} :: (List.tl player.mon_list) else
+      if starter.second_move.name = move_name 
+        then player.mon_list <- {starter with starter.second_move = changed_move} :: (List.tl player.mon_list) else
+      if starter.third_move.name = move_name 
+        then player.mon_list <- {starter with starter.third_move = changed_move} :: (List.tl player.mon_list) else
+      if starter.fourth_move.name = move_name 
+        then player.mon_list <- {starter with starter.fourth_move = changed_move} :: (List.tl player.mon_list) else
+      failwith "Steammon does not have that move" in 
+    end
+      
+>>>>>>> FETCH_HEAD
   (* Stores if the move hits, misses, or fails. pp decremented 
    * if the move hits or misses. If the move fails, pp remains the same. *)
   let hit_result : hit_result = 
     match starter.status with 
     | None -> 
-(*       move <- {move with pp_remaining = move.pp_remaining - 1};
- *)      if move_hits then Hit else Miss
+      decrease_pp;
+      if move_hits then Hit else Miss
     | Some status -> match status with 
       | Asleep -> Failed Asleep
       | Frozen -> Failed Frozen 
       | _ -> 
-(*         move <- {move with pp_remaining = move.pp_remaining - 1};
- *)        if move_hits then Hit else Miss in 
+        decrease_pp;
+        if move_hits then Hit else Miss in  
 
 
   let move_effectiveness, steamtype_multiplier = 
@@ -730,19 +748,50 @@ let use_move (g:game) (c:color) (move_name: string) : unit =
          (calc_multiplier steamtype_multiplier)
        | _ -> 0 in
   
-  let steammon_target, player_target  = 
+  let steammon_target, player_target, c_fainted  = 
     match move.target with 
-    | User -> starter, player 
-    | Opponent -> enemy, opponent in   
+    | User -> starter, player, c 
+    | Opponent -> enemy, opponent, invert_color c in   
 
   let effect_result_of_effect = function
-    | InflictStatus status -> InflictedStatus status  
-    | StatModifier (stat,i) -> StatModified (stat,i)
-    | RecoverPercent (i) -> Recovered (i * steammon_target.curr_hp / 100)
-    | Recoil i -> Recoiled (i * starter.curr_hp / 100)
-    | DamagePercent i ->  Damaged (steammon_target.max_hp * i / 100)
-    | HealStatus lst -> HealedStatus (List.hd lst)  
-    | RestorePP i -> RestoredPP i in 
+    | InflictStatus s -> 
+        player_target.mon_list <- 
+          {steammon_target with status = Some s}::
+          (List.tl player_target.mon_list);
+        InflictedStatus s  
+    | StatModifier (stat,i) -> 
+        (* player_target.mon_list <- 
+          {steammon_target with stat = steammon_target.stat + i}::
+          (List.tl player_target.mon_list); *)
+      StatModified (stat,i)
+    | RecoverPercent (i) -> 
+      let hp = i * steammon_target.curr_hp / 100 in 
+      player_target.mon_list <- 
+          {steammon_target with curr_hp = steammon_target.curr_hp + hp}::
+          (List.tl player_target.mon_list);
+      Recovered (hp)
+    | Recoil i -> 
+      let hp = i * starter.curr_hp / 100 in  
+      player_target.mon_list <- 
+          {steammon_target with curr_hp = steammon_target.curr_hp - hp}::
+          (List.tl player_target.mon_list);
+      Recoiled (hp)
+    | DamagePercent i ->  
+      let hp = steammon_target.max_hp * i / 100 in  
+      player_target.mon_list <- 
+          {steammon_target with curr_hp = steammon_target.curr_hp - hp}::
+          (List.tl player_target.mon_list);
+      Damaged (hp)
+    | HealStatus lst -> 
+      player_target.mon_list <- 
+          {steammon_target with status = None}::
+          (List.tl player_target.mon_list);
+      HealedStatus (List.hd lst)  
+    | RestorePP i -> 
+      player_target.mon_list <-
+          {steammon_target with status = None}::
+          (List.tl player_target.mon_list);
+      RestoredPP i in 
 
   let move_effects = 
     match move.effects with 
@@ -768,19 +817,35 @@ let use_move (g:game) (c:color) (move_name: string) : unit =
     effects = move_effects
   } in 
 
+  let target_hp_left = 
+    if steammon_target.curr_hp - move_damage < 0 then 0
+    else steammon_target.curr_hp - move_damage in
+
   let change_mon = function 
   | [] -> failwith "No steammon drafted!"
   | h::t -> 
-    {h with curr_hp = steammon_target.curr_hp - move_damage} :: t in   
+    {h with curr_hp = target_hp_left} :: t in   
 
 
   player_target.mon_list <- change_mon player_target.mon_list;
+  if target_hp_left = 0 then
+    begin  
+    player_fainted := true; 
+    color_fainted := c_fainted;
+    end 
+  else ();
+
+
   add_update(Move(move_result));
 
-  add_update(UpdateSteammon(starter.species,
-    starter.curr_hp,starter.max_hp,invert_color c));
+
+  let mon = List.hd player_target.mon_list in 
+
+  add_update(UpdateSteammon(mon.species,
+    mon.curr_hp,mon.max_hp,c_fainted));
+(* 
   add_update(UpdateSteammon(enemy.species,
-    enemy.curr_hp,enemy.max_hp,invert_color c));
+    enemy.curr_hp,enemy.max_hp,invert_color c)); *)
 
   send_updates ()
 
@@ -794,6 +859,9 @@ let handle_fainted (g:game) (c:color) (mon_name:string) : game_output =
   let game_data = game_datafication g in 
   (None, game_data, Some(Request(ActionRequest game_data)),
     Some(Request(ActionRequest game_data)))
+
+let handle_fainted_2 (g:game) (c:color) (mon_name:string)  = 
+  switch_steammon g c mon_name
 
 
 let handle_ActionRequest (g:game) (ra: command) (ba: command)
@@ -869,32 +937,17 @@ let handle_ActionRequest (g:game) (ra: command) (ba: command)
     | None -> continue
     | _ -> ()
 
-  let handle_action (g:game) (c:color) : command option =
-    let game_data = game_datafication g in
-    if (List.hd player.mon_list).curr_hp = 0 then 
-      begin 
-        player_fainted := true; 
-        color_fainted := c;
-        Some(Request(StarterRequest(game_data)))
-      end  
-    else Some(Request(ActionRequest(game_data))) in 
 
-
-  let act (c:color) (action:command) : command option =
+  let act (c:color) (action:command) : unit =
     match action with
-    | Action (SwitchSteammon s) ->
-        switch_steammon g c s;
-        let game_data = game_datafication g in
-        Some(Request(ActionRequest(game_data)))
-    | Action (UseItem (item,target)) ->
-        use_item g c item target;
-        handle_action g c
-    | Action (UseMove m) ->
-        use_move g c m;
-        handle_action g c
-    | DoNothing ->
-        let game_data = game_datafication g in 
-        Some(Request(ActionRequest(game_data))) 
+    | Action (SwitchSteammon s) -> switch_steammon g c s
+
+    | Action (UseItem (item,target)) -> use_item g c item target
+
+    | Action (UseMove m) -> use_move g c m
+
+    | DoNothing -> ()
+
     | _ -> failwith "Invalid bot response" in
 
   let find_first () : unit =
@@ -932,8 +985,11 @@ let handle_ActionRequest (g:game) (ra: command) (ba: command)
     end in 
 
   let all_fainted (c:color) : bool = 
-    List.fold_left (fun acc elem ->
-      acc && elem.curr_hp = 0) true player.mon_list in 
+    let player = match c with
+    | Red -> g.State.red
+    | Blue -> g.State.blue in
+      List.fold_left (fun acc elem ->
+        acc && elem.curr_hp = 0) true player.mon_list in
   
   let check_for_winner (g:game) : game_result option = 
     if all_fainted Red && all_fainted Blue then Some Tie
@@ -944,23 +1000,58 @@ let handle_ActionRequest (g:game) (ra: command) (ba: command)
   find_first ();
 
   if !first = Red then
-    begin
-      let r = check_effects Red (List.hd player.mon_list); in
-      let b = (
-        if !player_fainted = true then None
-        else act Blue ba) in 
-      process_effects;
-      player_fainted := false;
-      (check_for_winner g, game_datafication g, r, b)
-    end
-  else 
     begin 
-      check_effects Blue (List.hd player.mon_list);
-      let b = act Blue ba in
-      let r = (
-        if !player_fainted = true then None
-        else act Red ra) in 
-      process_effects;
-      player_fainted := false;
-      (check_for_winner g, game_datafication g, r, b)
-    end 
+      act Red ra;
+      process_effects ();
+      if !player_fainted = true then
+        begin 
+
+          process_effects (); 
+          player_fainted := false; 
+          match !color_fainted with 
+          | Red -> let game_data = game_datafication g in 
+            (check_for_winner g, game_data, 
+              Some(Request(StarterRequest(game_data))), None)
+          | Blue -> let game_data = game_datafication g in 
+            (check_for_winner g, game_data, None,
+              Some(Request(StarterRequest(game_data))))
+        end
+      else 
+
+        begin
+
+          act Blue ba;
+          process_effects;
+          let game_data = game_datafication g in 
+          (check_for_winner g, game_datafication g, 
+            Some(Request(ActionRequest(game_data))), 
+            Some(Request(ActionRequest(game_data))))
+        end
+    end
+  else
+    begin 
+      act Blue ba;    
+        process_effects ();
+        if !player_fainted = true then
+
+          begin 
+            process_effects (); 
+            player_fainted := false; 
+            match !color_fainted with 
+            | Red -> let game_data = game_datafication g in 
+              (check_for_winner g, game_data, 
+              Some(Request(StarterRequest(game_data))), None)
+            | Blue -> let game_data = game_datafication g in 
+              (check_for_winner g, game_data, None,
+              Some(Request(StarterRequest(game_data))))
+          end
+        else 
+          begin
+            act Red ra;
+            process_effects;
+            let game_data = game_datafication g in 
+            (check_for_winner g, game_datafication g, 
+            Some(Request(ActionRequest(game_data))), 
+            Some(Request(ActionRequest(game_data))))
+          end
+    end
