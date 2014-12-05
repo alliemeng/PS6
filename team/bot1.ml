@@ -3,16 +3,9 @@ open Definitions
 open Constants
 open Util
 
-(*Bot 1 Strategy:
-  Pickteam: Choose steammon with highest hp that has a type not yet 
-  represented on the team. Motive: Maximize team health and type variety
-  Pickitem:
-  Pickstarter:
-  Pickaction: If the current Steammon has a current hp less than 25%, switch it out
-  Overall: This bot is more inward looking, moderately aggressive*)
-
 let name = "BOT" 
 let _ = Random.self_init ()
+
 let roleslists = ref ([],[])
 
 exception NoMatchException
@@ -34,7 +27,7 @@ let pickInventoryHelper () : int list =
   Array.set inventarray 2 nfullheal;
   Array.to_list inventarray
 
-  (* let findinsp (field: string)  *)
+(* let findinsp (field: string)  *)
 let findcosteff (steampool: steam_pool) (maxcost:int) : steam_pool =
   List.filter (fun elm -> elm.cost < maxcost) steampool
 
@@ -47,22 +40,22 @@ let checkforopweaknesses (opp:steammon) (efflevel:effectiveness) (inplay: steamm
     | None -> Typeless) in
   if ((weakness optype1 inplay.first_move.element) = efflevel ||
   (weakness optype2 inplay.first_move.element) = efflevel &&
-  (inplay.first_move.pp_remaining > 0)) then
+  (inplay.first_move.pp_remaining > 0) && (inplay.first_move.power > 0)) then
     let _ = print_endline (inplay.species ^ "used " ^ ((inplay.first_move).name)) in
     UseMove(inplay.first_move.name)
   else if ((weakness optype1 inplay.first_move.element) = efflevel ||
   (weakness optype2 inplay.second_move.element) = efflevel &&
-  (inplay.second_move.pp_remaining > 0)) then
+  (inplay.second_move.pp_remaining > 0) && (inplay.second_move.power > 0)) then
     let _ = print_endline (inplay.species ^ "used " ^ ((inplay.second_move).name)) in
     UseMove(inplay.second_move.name)
   else if ((weakness optype1 inplay.first_move.element) = efflevel ||
   (weakness optype2 inplay.third_move.element) = efflevel &&
-  (inplay.third_move.pp_remaining > 0)) then
+  (inplay.third_move.pp_remaining > 0) && (inplay.third_move.power > 0)) then
     let _ = print_endline (inplay.species ^ "used " ^ ((inplay.third_move).name)) in
     UseMove(inplay.third_move.name)
   else if ((weakness optype1 inplay.first_move.element) = efflevel ||
   (weakness optype2 inplay.fourth_move.element) = efflevel &&
-  (inplay.fourth_move.pp_remaining > 0)) then
+  (inplay.fourth_move.pp_remaining > 0) && (inplay.fourth_move.power > 0)) then
       let _ = print_endline (inplay.species ^ "used " ^ ((inplay.fourth_move).name)) in
       UseMove(inplay.fourth_move.name) 
   else
@@ -87,7 +80,9 @@ let rec weredoomed (remlist: steammon list) : action =
     | _ -> failwith "We done goofed" 
 
 (* Returns steammon in team with move of eff effectiveness and HP > 0
- * Raises NoMatchException if none exist *)
+ * Raises NoMatchException if none exist 
+ * requires: opp of steammon on enemy team, team of your steammon list, eff of effectiveness
+ * returns: steammon corresponding to effectiveness given against opp steammon *)
 let rec checkteam (opp: steammon) (team: steammon list) (eff: effectiveness) : steammon =
   match team with
   | [] -> raise NoMatchException
@@ -98,7 +93,11 @@ let rec checkteam (opp: steammon) (team: steammon list) (eff: effectiveness) : s
       else raise NoMatchException
     with _ -> checkteam opp t eff
 
- (* allows the bot to know what color it is. *)
+(* Handles the request given to it and handles all steps 
+ * by returning a corresponding action 
+ * requires: c of color of team, r of request queried to player
+ * returns: action corresponding to the request queried *)
+(* c allows the bot to know what color it is. *)
 let handle_request (c : color) (r : request) : action =
   match r with
     | TeamNameRequest -> SendTeamName(name)
@@ -108,7 +107,7 @@ let handle_request (c : color) (r : request) : action =
     | PickInventoryRequest (gsd) -> 
       PickInventory(pickInventoryHelper ())
 
-   (* Sent during the draft phase to request that the player 
+    (* Sent during the draft phase to request that the player 
        draft a Steammon. *)
     | PickRequest(col, gsd, moves, sp) ->
       let (a1,b1) = gsd in
@@ -170,11 +169,7 @@ let handle_request (c : color) (r : request) : action =
         roleslists := (picked::attackers, defenders);
         PickSteammon(picked.species) 
 
-      (* let opp_team = if my_team = a1 then b1 else a1 in
-      let (omons,oinv,ocredits) = opp_team in 
-      if omons = [] then pickfirst sp *)
-
-    (* Sent at the beginning ofSteamon() the battle phase, or when the active 
+    (* Sent at the beginning of Steamon() the battle phase, or when the active 
      * Steammon faints. *)
     | StarterRequest(gsd)->
       let (a1,b1) = gsd in
@@ -203,13 +198,13 @@ let handle_request (c : color) (r : request) : action =
               checkteam (List.hd opmons) mons NotVeryEffective in
       SelectStarter(pick.species)
     
-    (*if hp < 40%, use potion
+    (* if hp < 40%, use potion
     elseif party member is dead, use revive
     elseif steammon is burned, frozen, poisoned, use full heal
     elseif PP > 0, select super-effective move
     elseif PP > 0, select non-notveryeffective move
     elseif swap steammon to one with above criteria 
-    else use whatever still has pp*)
+    else use whatever still has pp *)
     | ActionRequest (gr) ->
       let (a1, b1) = gr in 
       let my_team = if c = Red then a1 else b1 in
@@ -221,12 +216,6 @@ let handle_request (c : color) (r : request) : action =
         | Some t -> t
         | None -> Frozen in
       let fainted = List.filter (fun elm -> elm.curr_hp = 0) mons in
-      (* let optype1 = (match (List.hd opmons).first_type with
-        | Some t -> t
-          | None -> Typeless) in
-      let optype2 = (match (List.hd opmons).second_type with
-        | Some t -> t
-          | None -> Typeless) in *)
       (* HP < 40% *)
       if (float_of_int (inplay.curr_hp) < (0.3 *. float_of_int (inplay.max_hp))) &&
       ((List.nth pack 1) <> 0) then
@@ -273,40 +262,4 @@ let handle_request (c : color) (r : request) : action =
                     (* Check for any PP-available moves *)
                     weredoomed mons))))
 
-
-      (* else if ((weakness optype1 inplay.first_move.element) = SuperEffective ||
-      (weakness optype2 inplay.first_move.element) = SuperEffective) then
-        if (inplay.first_move.pp_remaining > 0) then
-          UseMove(inplay.first_move.name)
-      else if ((weakness optype1 inplay.first_move.element) = SuperEffective ||
-      (weakness optype2 inplay.second_move.element) = SuperEffective) then
-        if (inplay.second_move.pp_remaining > 0) then
-          UseMove(inplay.second_move.name)
-      else if ((weakness optype1 inplay.first_move.element) = SuperEffective ||
-      (weakness optype2 inplay.third_move.element) = SuperEffective) then
-        if (inplay.third_move.pp_remaining > 0) then
-          UseMove(inplay.third_move.name)
-      else if ((weakness optype1 inplay.first_move.element) = SuperEffective ||
-      (weakness optype2 inplay.fourth_move.element) = SuperEffective) then
-        if (inplay.fourth_move.pp_remaining > 0) then
-          UseMove(inplay.fourth_move.name) *)
-      
-      
-     (*  else if ((weakness optype1 inplay.first_move.element) = Regular ||
-      (weakness optype2 inplay.first_move.element) = Regular) then
-        if (inplay.first_move.pp_remaining > 0) then
-          UseMove(inplay.first_move.name)
-      else if ((weakness optype1 inplay.first_move.element) = Regular ||
-      (weakness optype2 inplay.second_move.element) = Regular) then
-        if (inplay.second_move.pp_remaining > 0) then
-          UseMove(inplay.second_move.name)
-      else if ((weakness optype1 inplay.first_move.element) = Regular ||
-      (weakness optype2 inplay.third_move.element) = Regular) then
-        if (inplay.third_move.pp_remaining > 0) then
-          UseMove(inplay.third_move.name)
-      else if ((weakness optype1 inplay.first_move.element) = Regular ||
-      (weakness optype2 inplay.fourth_move.element) = Regular) then
-        if (inplay.fourth_move.pp_remaining > 0) then
-          UseMove(inplay.fourth_move.name)  *)              
-
-(* let () = run_bot handle_request *)
+let () = run_bot handle_request
