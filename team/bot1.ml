@@ -184,7 +184,7 @@ let handle_request (c : color) (r : request) : action =
       let (opmons, oppack, opcredits) = op_team in
       let pick = 
         (* Have not yet entered battle stage *)
-        if (!(List.exists (fun x -> x.curr_hp <> 0) mons)) then
+        if (not (List.exists (fun x -> x.curr_hp <> 0) mons)) then
           (* Pick best defender *)
           List.fold_right (fun a acc -> 
             if (acc.defense >= a.defense) then acc
