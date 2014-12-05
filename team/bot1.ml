@@ -16,9 +16,11 @@ let findmaxhp (stpool:steam_pool) (initacc: steammon): steammon =
 
 let pickInventoryHelper () : int list = 
   let inventarray = Array.make 7 0 in
-  let nmaxpotion = (int_of_float ((float_of_int cINITIAL_CASH) *. (5.0/.8.0)))/cCOST_MAXPOTION in
+  let nmaxpotion = (int_of_float ((float_of_int cINITIAL_CASH) *.
+   (5.0/.8.0)))/cCOST_MAXPOTION in
   let remainingcash = (cINITIAL_CASH - (nmaxpotion*cCOST_MAXPOTION)) in 
-  let nrevive = (int_of_float ((float_of_int remainingcash)*. (3.0/.4.0)))/cCOST_REVIVE in
+  let nrevive = (int_of_float ((float_of_int remainingcash)*.
+   (3.0/.4.0)))/cCOST_REVIVE in
   let remcash = remainingcash - (nrevive* cCOST_REVIVE) in
   let nfullheal = if remcash > cCOST_FULLHEAL then remcash/cCOST_FULLHEAL
                   else 0 in
@@ -31,7 +33,8 @@ let pickInventoryHelper () : int list =
 let findcosteff (steampool: steam_pool) (maxcost:int) : steam_pool =
   List.filter (fun elm -> elm.cost < maxcost) steampool
 
-let checkforopweaknesses (opp:steammon) (efflevel:effectiveness) (inplay: steammon) : action =
+let checkforopweaknesses (opp:steammon) (efflevel:effectiveness)
+ (inplay: steammon) : action =
   let optype1 = (match opp.first_type with
     | Some t -> t
     | None -> Typeless) in
@@ -81,9 +84,10 @@ let rec weredoomed (remlist: steammon list) : action =
 
 (* Returns steammon in team with move of eff effectiveness and HP > 0
  * Raises NoMatchException if none exist 
- * requires: opp of steammon on enemy team, team of your steammon list, eff of effectiveness
+ * requires: opp of steammon on enemy team, team of steammon list, eff of effectiveness
  * returns: steammon corresponding to effectiveness given against opp steammon *)
-let rec checkteam (opp: steammon) (team: steammon list) (eff: effectiveness) : steammon =
+let rec checkteam (opp: steammon) (team: steammon list)
+ (eff: effectiveness) : steammon =
   match team with
   | [] -> raise NoMatchException
   | h::t -> 
@@ -116,7 +120,8 @@ let handle_request (c : color) (r : request) : action =
       let lengthmons = List.length mons in
       (*pick best defender*)
       if lengthmons = 0 then 
-        let avail = findcosteff sp (int_of_float ((float_of_int cSTEAMMON_CREDITS)*. (3.0/.8.0))) in
+        let avail = findcosteff sp (int_of_float ((float_of_int cSTEAMMON_CREDITS)*.
+         (3.0/.8.0))) in
         let picked = (List.fold_left (fun acc elm ->
         if elm.defense > acc.defense then elm else acc) (List.hd avail) avail) in 
         let (attackers,defenders) = !roleslists in 
@@ -125,7 +130,8 @@ let handle_request (c : color) (r : request) : action =
 
       (*pick best special attacker*)
       else if lengthmons = 1 then
-        let avail = findcosteff sp (int_of_float ((float_of_int cSTEAMMON_CREDITS)*. (3.0/.8.0))) in
+        let avail = findcosteff sp (int_of_float ((float_of_int cSTEAMMON_CREDITS)*.
+         (3.0/.8.0))) in
         let picked = List.fold_left (fun acc elm ->
         if elm.spl_attack > acc.spl_attack then elm else acc) (List.hd avail) avail in
         let (attackers,defenders) = !roleslists in 
@@ -134,7 +140,8 @@ let handle_request (c : color) (r : request) : action =
 
       (*pick best special defender*)
       else if lengthmons = 2 then
-        let avail = findcosteff sp (int_of_float ((float_of_int cSTEAMMON_CREDITS)*. (1.0/.8.0))) in
+        let avail = findcosteff sp (int_of_float ((float_of_int cSTEAMMON_CREDITS)*.
+         (1.0/.8.0))) in
         let picked = List.fold_left (fun acc elm ->
         if elm.spl_defense> acc.spl_defense then elm else acc) (List.hd avail) avail in
         let (attackers,defenders) = !roleslists in 
@@ -143,7 +150,8 @@ let handle_request (c : color) (r : request) : action =
 
       (*pick best attacker*)
       else if lengthmons = 3 then
-        let avail = findcosteff sp (int_of_float ((float_of_int cSTEAMMON_CREDITS)*. (1.0/.8.0))) in
+        let avail = findcosteff sp (int_of_float ((float_of_int cSTEAMMON_CREDITS)*.
+         (1.0/.8.0))) in
         let picked = List.fold_left (fun acc elm ->
         if elm.attack > acc.attack then elm else acc) (List.hd avail) avail in
         let (attackers,defenders) = !roleslists in 
@@ -232,7 +240,8 @@ let handle_request (c : color) (r : request) : action =
           else if List.mem spattacker fainted then UseItem((Revive,spattacker.species))
           else UseItem((Revive, (findmaxhp fainted (List.hd (fainted))).species))
       (* Burned, frozen , poisoned *)
-      else if (inplay.status <> None) && (ins = Burned || ins = Frozen || ins = Poisoned) && ((List.nth pack 2) <> 0) then
+      else if (inplay.status <> None) && (ins = Burned || ins = Frozen || ins = Poisoned) &&
+       ((List.nth pack 2) <> 0) then
         UseItem((FullHeal, inplay.species))
       (* Look for super-effective move and check PP *)
       else (

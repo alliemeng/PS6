@@ -1,0 +1,4 @@
+The assignment was quite challenging in regards to how open it was in infrastructure design
+as well as handling the many various corner cases. A little more guidance regarding an effective
+implementaton of the AI would have been helpful. In general, Lily and Elaine primarily worked on
+game.ml and the related modules. Charles and Allie worked primarily on the bot module implmentation.
