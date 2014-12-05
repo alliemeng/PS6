@@ -53,11 +53,11 @@ type status =
 
 (* The modifier values for each of a Steammon's stats *)
 type modifier = {
-  mutable attack_mod: int;
-  mutable defense_mod: int;
-  mutable spl_attack_mod: int;
-  mutable spl_defense_mod: int;
-  mutable speed_mod: int;
+  attack_mod: int;
+  defense_mod: int;
+  spl_attack_mod: int;
+  spl_defense_mod: int;
+  speed_mod: int;
 }
 
 (* Represents the general target of a move. *)
@@ -98,21 +98,21 @@ type move = {
 (* Represents a Steammon! *)
 type steammon = {
   species: string;
-  mutable curr_hp : int;
+  curr_hp : int;
   max_hp : int;
   first_type: steamtype option;
   second_type: steamtype option;
-  mutable first_move: move;
-  mutable second_move: move;
-  mutable third_move: move;
-  mutable fourth_move: move;
-  mutable attack: int;
-  mutable spl_attack : int;
-  mutable defense: int;
-  mutable spl_defense: int;
-  mutable speed: int;
-  mutable status: status option;
-  mutable mods: modifier;
+  first_move: move;
+  second_move: move;
+  third_move: move;
+  fourth_move: move;
+  attack: int;
+  spl_attack : int;
+  defense: int;
+  spl_defense: int;
+  speed: int;
+  status: status option;
+  mods: modifier;
   cost: int
 }
 
