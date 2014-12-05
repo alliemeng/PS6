@@ -86,15 +86,15 @@ let rec weredoomed (remlist: steammon list) : action =
         else weredoomed t
     | _ -> failwith "We done goofed" 
 
-(* Returns SwitchSteammon action for steammon in team with move of eff effectiveness and HP > 0
+(* Returns steammon in team with move of eff effectiveness and HP > 0
  * Raises NoMatchException if none exist *)
-let rec checkteam (opp: steammon) (team: steammon list) (eff: effectiveness) : action =
+let rec checkteam (opp: steammon) (team: steammon list) (eff: effectiveness) : steammon =
   match team with
   | [] -> raise NoMatchException
   | h::t -> 
     try 
       ignore (checkforopweaknesses opp eff h);
-      if h.curr_hp > 0 then SwitchSteammon(h.species)
+      if h.curr_hp > 0 then h
       else raise NoMatchException
     with _ -> checkteam opp t eff
 
@@ -193,20 +193,14 @@ let handle_request (c : color) (r : request) : action =
         else
           (* Look for super-effective move in party steammon *)
           try 
-            match (checkteam (List.hd opmons) mons SuperEffective) with
-            | SwitchSteammon s -> SelectStarter(s)
-            | _ -> failwith "WHO DID THIS"
+            checkteam (List.hd opmons) mons SuperEffective
           (* Select steammon with regular-effective move in party *)
           with _ ->
             try
-              match (checkteam (List.hd opmons) mons Regular) with
-              | SwitchSteammon s -> SelectStarter(s)
-              | _ -> failwith "MARK DID IT" 
+              checkteam (List.hd opmons) mons Regular
             (* Select any one we can get *)
             with _ ->
-              match (checkteam (List.hd opmons) mons NotVeryEffective) with
-              | SwitchSteammon s -> SelectStarter(s)
-              | _ -> failwith "MARK DID IT" in
+              checkteam (List.hd opmons) mons NotVeryEffective in
       SelectStarter(pick.species)
     
     (*if hp < 40%, use potion
@@ -235,10 +229,10 @@ let handle_request (c : color) (r : request) : action =
           | None -> Typeless) in *)
       (* HP < 40% *)
       if (float_of_int (inplay.curr_hp) < (0.3 *. float_of_int (inplay.max_hp))) &&
-      (List.nth 1 <> 0) then
+      ((List.nth pack 1) <> 0) then
         UseItem((MaxPotion, inplay.species))
       (* Party member is dead *)
-      else if (fainted <> []) && (List.nth 3 <> 0) then
+      else if (fainted <> []) && ((List.nth pack 3) <> 0) then
           let defender = List.fold_right (fun a acc -> 
               if (acc.defense >= a.defense) then acc
               else a) (snd (!roleslists)) (List.hd (snd (!roleslists))) in
@@ -249,7 +243,7 @@ let handle_request (c : color) (r : request) : action =
           else if List.mem spattacker fainted then UseItem((Revive,spattacker.species))
           else UseItem((Revive, (findmaxhp fainted (List.hd (fainted))).species))
       (* Burned, frozen , poisoned *)
-      else if (inplay.status <> None) && (ins = Burned || ins = Frozen || ins = Poisoned) && (List.nth 2 <> 0) then
+      else if (inplay.status <> None) && (ins = Burned || ins = Frozen || ins = Poisoned) && ((List.nth pack 2) <> 0) then
         UseItem((FullHeal, inplay.species))
       (* Look for super-effective move and check PP *)
       else (
@@ -258,7 +252,7 @@ let handle_request (c : color) (r : request) : action =
         with _ -> ( 
           (* Check for other party members with super-effective move *)
           try 
-            checkteam (List.hd opmons) mons SuperEffective
+            SwitchSteammon((checkteam (List.hd opmons) mons SuperEffective).species)
           with _ -> (
             (* Look for any move that that is Regular effectiveness and has PP *)
             try 
@@ -266,7 +260,7 @@ let handle_request (c : color) (r : request) : action =
             with _ -> (
               (* Check for other party members with regular effectiveness and has PP *)
               try 
-                checkteam (List.hd opmons) mons Regular
+                SwitchSteammon((checkteam (List.hd opmons) mons Regular).species)
               with _ ->
                 (* Look for any move that has NotVeryEffective effectiveness and has PP *)
                 try 
@@ -274,7 +268,7 @@ let handle_request (c : color) (r : request) : action =
                 with _ ->
                   (* Check for other party members with NotVeryEffective effectiveness move*)
                   try 
-                    checkteam (List.hd opmons) mons NotVeryEffective
+                    SwitchSteammon((checkteam (List.hd opmons) mons NotVeryEffective).species)
                   with _ ->
                     (* Check for any PP-available moves *)
                     weredoomed mons))))
@@ -315,7 +309,4 @@ let handle_request (c : color) (r : request) : action =
         if (inplay.fourth_move.pp_remaining > 0) then
           UseMove(inplay.fourth_move.name)  *)              
 
-     
-
-     
-let () = run_bot handle_request
+(* let () = run_bot handle_request *)
