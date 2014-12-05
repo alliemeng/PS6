@@ -622,6 +622,59 @@ let use_move (g:game) (c:color) (move_name: string) : unit =
       Random.int 100 < move.accuracy in 
 
 
+  match player.status with
+  | Some Poisoned ->
+      let new_guy =
+        { species = s.species;
+        curr_hp =
+          if s.curr_hp - (s.max_hp*cPOISON_DAMAGE) > 0 then
+          s.curr_hp - (s.max_hp*cPOISON_DAMAGE) else 0;
+        max_hp = s.max_hp;
+        first_type = s.first_type;
+        second_type = s.second_type;
+        first_move = s.first_move;
+        second_move = s.second_move;
+        third_move = s.third_move;
+        fourth_move = s.fourth_move;
+        attack = s.attack;
+        spl_attack = s.spl_attack;
+        defense = s.defense;
+        spl_defense = s.spl_defense;
+        speed = s.speed;
+        status = stat;
+        mods = s.mods;
+        cost = s.cost } in
+      let new_starter = (match (player.mon_list) with
+        | hd::tl -> new_guy::tl
+        | [] -> []) in
+      player.mon_list <- new_starter; ()
+  | Some Burned ->
+      let new_guy =
+        { species = s.species;
+        curr_hp =
+          if s.curr_hp - (s.max_hp*cBURN_DAMAGE) > 0 then
+          s.curr_hp - (s.max_hp*cBURN_DAMAGE) else 0;
+        max_hp = s.max_hp;
+        first_type = s.first_type;
+        second_type = s.second_type;
+        first_move = s.first_move;
+        second_move = s.second_move;
+        third_move = s.third_move;
+        fourth_move = s.fourth_move;
+        attack = s.attack;
+        spl_attack = s.spl_attack;
+        defense = s.defense;
+        spl_defense = s.spl_defense;
+        speed = s.speed;
+        status = stat;
+        mods = s.mods;
+        cost = s.cost } in
+      let new_starter = (match (player.mon_list) with
+        | hd::tl -> new_guy::tl
+        | [] -> []) in
+      player.mon_list <- new_starter; ()
+  | _ -> ()
+
   (* Stores if the move hits, misses, or fails. pp decremented 
    * if the move hits or misses. If the move fails, pp remains the same. *)
   let hit_result : hit_result = 
@@ -668,8 +721,8 @@ let use_move (g:game) (c:color) (move_name: string) : unit =
     | None, None -> failwith "Steammon should have at least one steamtype" in 
 
   (*Stores damage of move. If move misses or is non-damaging, returns 0*)
-  let move_damage : int = 
-    if move.power = 0 then 0 
+  let move_damage : int =
+    if move.power = 0 then 0
     else 
       match hit_result with
        | Hit -> calculate_damage (calc_attackers_attack starter move) 
@@ -743,21 +796,81 @@ let handle_fainted (g:game) (c:color) (mon_name:string) : game_output =
     Some(Request(ActionRequest game_data)))
 
 
+let handle_ActionRequest (g:game) (ra: command) (ba: command)
+  : game_output =
 
-let handle_ActionRequest (g:game) (ra: command)
-  (ba: command) : game_output =
-  
+  let player = match c with 
+    | Red -> g.State.red
+    | Blue -> g.State.blue in 
 
-  (*WRITE THIS NOWWWWWWW*)
-  let process_effects () : unit = 
-    () in 
+  let set_stat (s:steammon) (stat:status option) : steammon =
+    { species = s.species;
+      curr_hp = s.curr_hp;
+      max_hp = s.max_hp;
+      first_type = s.first_type;
+      second_type = s.second_type;
+      first_move = s.first_move;
+      second_move = s.second_move;
+      third_move = s.third_move;
+      fourth_move = s.fourth_move;
+      attack = s.attack;
+      spl_attack = s.spl_attack;
+      defense = s.defense;
+      spl_defense = s.spl_defense;
+      speed = s.speed;
+      status = stat;
+      mods = s.mods;
+      cost = s.cost }
+
+  let check_effects (team:color) (s:steammon) : unit = 
+    let continue =
+      match team with
+        | Red -> act Red ra
+        | Blue -> act Blue ba in
+    let checking_on = match team with 
+    | Red -> g.State.red
+    | Blue -> g.State.blue in
+    match s.status with
+    | Some Paralyzed ->
+        if (Random.int 100) < cPARALYSIS_CHANCE then ()
+        else continue
+    | Some Poisoned -> continue
+    | Some Asleep ->
+        if (Random.int 100) < cWAKE_UP_CHANCE then
+          let new_starter =
+            (match checking_on.mon_list with
+              | [] -> []
+              | hd::tl -> (set_stat s None)::tl) in
+          checking_on.mon_list <- new_starter;
+          continue
+        else ()
+    | Some Burned -> continue
+    | Some Frozen ->
+        if (Random.int 100) < cDEFROST_CHANCE then
+          let new_starter =
+            (match checking_on.mon_list with
+              | [] -> []
+              | hd::tl -> (set_stat s None)::tl) in
+          checking_on.mon_list <- new_starter;
+          continue
+        else ()
+    | Some Confused ->
+        if (Random.int 100) < cSNAP_OUT_OF_CONFUSION then
+          let new_starter =
+            (match checking_on.mon_list with
+              | [] -> []
+              | hd::tl -> (set_stat s None)::tl) in
+          checking_on.mon_list <- new_starter;
+          continue
+        else
+          if (Random.int 100) < cSELF_ATTACK_CHANCE then
+            act team (Action (UseMove "AttackSelf"))
+          else ()
+    | None -> continue
+    | _ -> ()
 
   let handle_action (g:game) (c:color) : command option =
-    let player = match c with 
-    | Red -> g.red
-    | Blue -> g.blue in 
-
-    let game_data = game_datafication g in  
+    let game_data = game_datafication g in
     if (List.hd player.mon_list).curr_hp = 0 then 
       begin 
         player_fainted := true; 
@@ -774,19 +887,25 @@ let handle_ActionRequest (g:game) (ra: command)
         let game_data = game_datafication g in
         Some(Request(ActionRequest(game_data)))
     | Action (UseItem (item,target)) ->
-      use_item g c item target;
-      handle_action g c
+        use_item g c item target;
+        handle_action g c
     | Action (UseMove m) ->
-      use_move g c m;
-      handle_action g c
+        use_move g c m;
+        handle_action g c
     | DoNothing ->
-      let game_data = game_datafication g in 
-      Some(Request(ActionRequest(game_data))) 
+        let game_data = game_datafication g in 
+        Some(Request(ActionRequest(game_data))) 
     | _ -> failwith "Invalid bot response" in
 
   let find_first () : unit =
-    let red_speed = (List.hd g.red.mon_list).speed in
-    let blue_speed = (List.hd g.blue.mon_list).speed in
+    let red_speed =
+      if (List.hd g.red.mon_list).status = Paralyzed then
+        (List.hd g.red.mon_list).speed/cPARALYSIS_SLOW
+      else (List.hd g.red.mon_list).speed in
+    let blue_speed =
+      if (List.hd g.blue.mon_list).status = Paralyzed then
+        (List.hd g.blue.mon_list).speed/cPARALYSIS_SLOW
+      else (List.hd g.blue.mon_list).speed in
     if red_speed > blue_speed then 
       begin
         first := Red;
@@ -813,24 +932,20 @@ let handle_ActionRequest (g:game) (ra: command)
     end in 
 
   let all_fainted (c:color) : bool = 
-    let player = match c with 
-    | Red -> g.red
-    | Blue -> g.blue in 
-      List.fold_left (fun acc elem ->
-        acc && elem.curr_hp = 0) true player.mon_list in 
+    List.fold_left (fun acc elem ->
+      acc && elem.curr_hp = 0) true player.mon_list in 
   
   let check_for_winner (g:game) : game_result option = 
     if all_fainted Red && all_fainted Blue then Some Tie
     else if all_fainted Red then Some (Winner Blue)
     else if all_fainted Blue then Some (Winner Red)
-    else None in  
+    else None in
 
-  find_first (); 
+  find_first ();
 
   if !first = Red then
-    begin 
-      process_effects ();
-      let r = act Red ra in
+    begin
+      let r = check_effects Red (List.hd player.mon_list); in
       let b = (
         if !player_fainted = true then None
         else act Blue ba) in 
@@ -840,7 +955,7 @@ let handle_ActionRequest (g:game) (ra: command)
     end
   else 
     begin 
-      process_effects ();
+      check_effects Blue (List.hd player.mon_list);
       let b = act Blue ba in
       let r = (
         if !player_fainted = true then None

@@ -67,9 +67,6 @@ let handle_step (g:game) (ra:command) (ba:command) : game_output =
       | DoNothing, Action(SelectStarter starter) -> 
         handle_fainted g Blue starter
       | _, _ -> handle_ActionRequest g ra ba)
-
-     
-         
          
 let init_game () : game * request * request * move list * steammon list =
   let s = State.create () in 
