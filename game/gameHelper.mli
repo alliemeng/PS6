@@ -5,9 +5,8 @@ module type STATE = sig
   type player = {mutable mon_list: steammon list;
                  mutable inventory: inventory; 
                  mutable credits: int} 
-  type t = {mutable red: player;
-            mutable blue: player;
-            mutable mon_table: steammon Table.t}
+  type t = {mutable red: player; 
+            mutable blue: player}
   val create: unit -> t
 end
 module State : STATE
@@ -23,7 +22,7 @@ val last_drafted: color ref
 val last_request_sent: phase ref
 
 val game_datafication: game -> game_status_data
-val find_player: color -> State.player
+val find_player: color -> game -> State.player
 val pick_request_helper: game -> color -> game_output
 val handle_SendTeamName: game -> string -> string -> game_output
 val draft_mon_helper: game -> steammon -> color -> unit
@@ -34,5 +33,5 @@ val set_inventory: game -> color -> inventory -> unit
 val handle_PickInventory: game -> inventory -> inventory -> game_output
 val switch_steammon: game -> color -> string -> unit
 val handle_SelectStarter: game -> string -> string -> game_output
-val use_item: game -> color -> item -> string -> unit
+val use_item: game -> color -> item -> string -> 
 val handle_ActionRequest: game -> color -> string -> unit
