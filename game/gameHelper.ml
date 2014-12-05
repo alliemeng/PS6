@@ -621,20 +621,34 @@ let use_move (g:game) (c:color) (move_name: string) : unit =
     else 
       Random.int 100 < move.accuracy in 
 
-
+  let decrease_pp () = 
+    if (move.pp_remaining - 1) <= 0 then () else 
+    begin
+    let changed_move = {move with pp_remaining = (move.pp_remaining - 1)} in
+      if starter.first_move.name = move_name 
+        then player.mon_list <- {starter with starter.first_move = changed_move} :: (List.tl player.mon_list) else
+      if starter.second_move.name = move_name 
+        then player.mon_list <- {starter with starter.second_move = changed_move} :: (List.tl player.mon_list) else
+      if starter.third_move.name = move_name 
+        then player.mon_list <- {starter with starter.third_move = changed_move} :: (List.tl player.mon_list) else
+      if starter.fourth_move.name = move_name 
+        then player.mon_list <- {starter with starter.fourth_move = changed_move} :: (List.tl player.mon_list) else
+      failwith "Steammon does not have that move" in 
+    end
+      
   (* Stores if the move hits, misses, or fails. pp decremented 
    * if the move hits or misses. If the move fails, pp remains the same. *)
   let hit_result : hit_result = 
     match starter.status with 
     | None -> 
-(*       move <- {move with pp_remaining = move.pp_remaining - 1};
- *)      if move_hits then Hit else Miss
+      decrease_pp;
+      if move_hits then Hit else Miss
     | Some status -> match status with 
       | Asleep -> Failed Asleep
       | Frozen -> Failed Frozen 
       | _ -> 
-(*         move <- {move with pp_remaining = move.pp_remaining - 1};
- *)        if move_hits then Hit else Miss in 
+        decrease_pp;
+        if move_hits then Hit else Miss in  
 
 
   let move_effectiveness, steamtype_multiplier = 
