@@ -621,78 +621,21 @@ let use_move (g:game) (c:color) (move_name: string) : unit =
     else 
       Random.int 100 < move.accuracy in 
 
-<<<<<<< HEAD
-
-  match player.status with
-  | Some Poisoned ->
-      let new_guy =
-        { species = s.species;
-        curr_hp =
-          if s.curr_hp - (s.max_hp*cPOISON_DAMAGE) > 0 then
-          s.curr_hp - (s.max_hp*cPOISON_DAMAGE) else 0;
-        max_hp = s.max_hp;
-        first_type = s.first_type;
-        second_type = s.second_type;
-        first_move = s.first_move;
-        second_move = s.second_move;
-        third_move = s.third_move;
-        fourth_move = s.fourth_move;
-        attack = s.attack;
-        spl_attack = s.spl_attack;
-        defense = s.defense;
-        spl_defense = s.spl_defense;
-        speed = s.speed;
-        status = stat;
-        mods = s.mods;
-        cost = s.cost } in
-      let new_starter = (match (player.mon_list) with
-        | hd::tl -> new_guy::tl
-        | [] -> []) in
-      player.mon_list <- new_starter; ()
-  | Some Burned ->
-      let new_guy =
-        { species = s.species;
-        curr_hp =
-          if s.curr_hp - (s.max_hp*cBURN_DAMAGE) > 0 then
-          s.curr_hp - (s.max_hp*cBURN_DAMAGE) else 0;
-        max_hp = s.max_hp;
-        first_type = s.first_type;
-        second_type = s.second_type;
-        first_move = s.first_move;
-        second_move = s.second_move;
-        third_move = s.third_move;
-        fourth_move = s.fourth_move;
-        attack = s.attack;
-        spl_attack = s.spl_attack;
-        defense = s.defense;
-        spl_defense = s.spl_defense;
-        speed = s.speed;
-        status = stat;
-        mods = s.mods;
-        cost = s.cost } in
-      let new_starter = (match (player.mon_list) with
-        | hd::tl -> new_guy::tl
-        | [] -> []) in
-      player.mon_list <- new_starter; ()
-  | _ -> ()
-
-=======
   let decrease_pp () = 
     if (move.pp_remaining - 1) <= 0 then () else 
     begin
     let changed_move = {move with pp_remaining = (move.pp_remaining - 1)} in
       if starter.first_move.name = move_name 
-        then player.mon_list <- {starter with starter.first_move = changed_move} :: (List.tl player.mon_list) else
+        then player.mon_list <- {starter with first_move = changed_move} :: (List.tl player.mon_list) else
       if starter.second_move.name = move_name 
-        then player.mon_list <- {starter with starter.second_move = changed_move} :: (List.tl player.mon_list) else
+        then player.mon_list <- {starter with second_move = changed_move} :: (List.tl player.mon_list) else
       if starter.third_move.name = move_name 
-        then player.mon_list <- {starter with starter.third_move = changed_move} :: (List.tl player.mon_list) else
+        then player.mon_list <- {starter with third_move = changed_move} :: (List.tl player.mon_list) else
       if starter.fourth_move.name = move_name 
-        then player.mon_list <- {starter with starter.fourth_move = changed_move} :: (List.tl player.mon_list) else
+        then player.mon_list <- {starter with fourth_move = changed_move} :: (List.tl player.mon_list) else
       failwith "Steammon does not have that move" in 
     end
       
->>>>>>> FETCH_HEAD
   (* Stores if the move hits, misses, or fails. pp decremented 
    * if the move hits or misses. If the move fails, pp remains the same. *)
   let hit_result : hit_result = 
@@ -803,7 +746,64 @@ let use_move (g:game) (c:color) (move_name: string) : unit =
       if Random.int 100 < chance then 
         List.map (fun effect -> 
           effect_result_of_effect effect,color) effect_list
-      else [] in  
+      else [] in
+  
+    (* match player.status with
+    | Some Poisoned ->
+        let new_guy =
+          { species = s.species;
+          curr_hp =
+            if s.curr_hp - (s.max_hp*cPOISON_DAMAGE) > 0 then
+            s.curr_hp - (s.max_hp*cPOISON_DAMAGE) else 0;
+          max_hp = s.max_hp;
+          first_type = s.first_type;
+          second_type = s.second_type;
+          first_move = s.first_move;
+          second_move = s.second_move;
+          third_move = s.third_move;
+          fourth_move = s.fourth_move;
+          attack = s.attack;
+          spl_attack = s.spl_attack;
+          defense = s.defense;
+          spl_defense = s.spl_defense;
+          speed = s.speed;
+          status = stat;
+          mods = s.mods;
+          cost = s.cost };
+          add_update(UpdateSteammon(s.species,
+            s.curr_hp,s.max_hp,c_fainted)); in
+        let new_starter = (match (player.mon_list) with
+          | hd::tl -> new_guy::tl
+          | [] -> []) in
+        player.mon_list <- new_starter; ()
+    | Some Burned ->
+        let new_guy =
+          { species = s.species;
+          curr_hp =
+            if s.curr_hp - (s.max_hp*cBURN_DAMAGE) > 0 then
+            s.curr_hp - (s.max_hp*cBURN_DAMAGE) else 0;
+          max_hp = s.max_hp;
+          first_type = s.first_type;
+          second_type = s.second_type;
+          first_move = s.first_move;
+          second_move = s.second_move;
+          third_move = s.third_move;
+          fourth_move = s.fourth_move;
+          attack = s.attack;
+          spl_attack = s.spl_attack;
+          defense = s.defense;
+          spl_defense = s.spl_defense;
+          speed = s.speed;
+          status = stat;
+          mods = s.mods;
+          cost = s.cost };
+          add_update(UpdateSteammon(s.species,
+            s.curr_hp,s.max_hp,c_fainted)); in
+        let new_starter = (match (player.mon_list) with
+          | hd::tl -> new_guy::tl
+          | [] -> []) in
+        player.mon_list <- new_starter; ()
+    | _ -> () *)
 
   (*information for gui*)
   let move_result = {
